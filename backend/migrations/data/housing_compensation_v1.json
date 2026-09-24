@@ -1,0 +1,295 @@
+{
+  "code": "housing_compensation",
+  "version": 1,
+  "title": "Компенсация расходов на оплату ЖКУ",
+  "short_description": "Ежемесячная денежная компенсация расходов на оплату жилого помещения и коммунальных услуг",
+  "estimated_minutes": 15,
+  "disclaimer": "Демонстрационная услуга. Заявление никуда не направляется, данные не передаются в государственные системы.",
+  "steps": [
+    {
+      "id": "category",
+      "title": "Категория заявителя",
+      "description": "Выберите, на каком основании вы оформляете компенсацию",
+      "elements": [
+        {
+          "id": "benefit_category",
+          "type": "select",
+          "label": "Категория заявителя",
+          "required": true,
+          "privacy": "public",
+          "options": [
+            { "value": "pensioner", "label": "Пенсионер по старости" },
+            { "value": "disabled", "label": "Человек с инвалидностью или семья с ребёнком-инвалидом" },
+            { "value": "labor_veteran", "label": "Ветеран труда" },
+            { "value": "large_family", "label": "Многодетная семья" },
+            { "value": "low_income", "label": "Малоимущая семья" }
+          ],
+          "operator_hint": "Если заявитель подходит под несколько категорий, выбрать ту, где размер компенсации больше. Частая ошибка: пенсионеры с удостоверением ветерана труда выбирают «Пенсионер»."
+        },
+        {
+          "id": "benefit_reason",
+          "type": "select",
+          "label": "Основание получения льготы",
+          "hint": "Документ, который подтверждает право на компенсацию",
+          "required": true,
+          "privacy": "public",
+          "options": [
+            { "value": "certificate", "label": "Удостоверение" },
+            { "value": "mse_certificate", "label": "Справка МСЭ" },
+            { "value": "social_decision", "label": "Решение органа соцзащиты" },
+            { "value": "pension_record", "label": "Сведения о назначенной пенсии" }
+          ]
+        },
+        {
+          "id": "category_info",
+          "type": "info",
+          "style": "info",
+          "text": "Если вы относитесь к нескольким категориям, выберите одну, по которой компенсация больше. Не уверены — нажмите «Нужна помощь»."
+        }
+      ]
+    },
+    {
+      "id": "address",
+      "title": "Адрес жилого помещения",
+      "description": "Укажите адрес, по которому вы оплачиваете ЖКУ",
+      "elements": [
+        {
+          "id": "region",
+          "type": "select",
+          "label": "Регион",
+          "required": true,
+          "privacy": "public",
+          "options": [
+            { "value": "spb", "label": "Санкт-Петербург" },
+            { "value": "msk", "label": "Москва" },
+            { "value": "len_obl", "label": "Ленинградская область" },
+            { "value": "other", "label": "Другой регион" }
+          ]
+        },
+        {
+          "id": "address",
+          "type": "text",
+          "label": "Адрес",
+          "placeholder": "Улица, дом, корпус, квартира",
+          "required": true,
+          "privacy": "masked",
+          "role_overrides": { "government_operator": "public" },
+          "validation": [{ "rule": "length", "min": 10, "max": 300 }]
+        },
+        {
+          "id": "ownership_type",
+          "type": "radio",
+          "label": "Вы в этом жилье",
+          "required": true,
+          "privacy": "public",
+          "options": [
+            { "value": "owner", "label": "Собственник" },
+            { "value": "tenant", "label": "Наниматель по договору соцнайма" },
+            { "value": "family_member", "label": "Член семьи собственника" }
+          ]
+        },
+        {
+          "id": "living_area",
+          "type": "number",
+          "label": "Общая площадь",
+          "unit": "м²",
+          "hint": "Указана в квитанции за ЖКУ",
+          "required": true,
+          "privacy": "public",
+          "validation": [{ "rule": "range", "min": 5, "max": 500 }]
+        }
+      ]
+    },
+    {
+      "id": "family",
+      "title": "Заявитель и семья",
+      "description": "Укажите данные заявителя и количество членов семьи",
+      "elements": [
+        {
+          "id": "full_name",
+          "type": "text",
+          "label": "ФИО полностью",
+          "hint": "Как в паспорте",
+          "required": true,
+          "privacy": "masked",
+          "validation": [
+            {
+              "rule": "pattern",
+              "regex": "^[А-Яа-яЁё\\- ]{5,120}$",
+              "details": "Только русские буквы, пробел и дефис"
+            }
+          ]
+        },
+        {
+          "id": "birth_date",
+          "type": "date",
+          "label": "Дата рождения",
+          "required": true,
+          "privacy": "masked",
+          "validation": [{ "rule": "date_past" }]
+        },
+        {
+          "id": "snils",
+          "type": "text",
+          "label": "СНИЛС",
+          "placeholder": "123-456-789 00",
+          "hint": "11 цифр, есть на зелёной карточке или в приложении СФР",
+          "required": true,
+          "privacy": "owner_only",
+          "validation": [
+            { "rule": "pattern", "regex": "^\\d{3}-\\d{3}-\\d{3} \\d{2}$", "details": "Формат: 123-456-789 00" }
+          ],
+          "operator_hint": "Если СНИЛС не принимается, попросить сверить с карточкой. Не диктовать номер вслух."
+        },
+        {
+          "id": "family_size",
+          "type": "number",
+          "label": "Сколько человек в семье, включая вас",
+          "required": true,
+          "privacy": "public",
+          "validation": [{ "rule": "range", "min": 1, "max": 20 }]
+        },
+        {
+          "id": "has_disabled_members",
+          "type": "checkbox",
+          "label": "В семье есть человек с инвалидностью",
+          "privacy": "public"
+        }
+      ]
+    },
+    {
+      "id": "income",
+      "title": "Доходы",
+      "description": "Нужны для расчёта размера компенсации",
+      "elements": [
+        {
+          "id": "income_type",
+          "type": "select",
+          "label": "Основной источник дохода",
+          "required": true,
+          "privacy": "public",
+          "options": [
+            { "value": "pension", "label": "Пенсия" },
+            { "value": "salary", "label": "Заработная плата" },
+            { "value": "benefits", "label": "Пособия" },
+            { "value": "none", "label": "Нет дохода" }
+          ]
+        },
+        {
+          "id": "monthly_income",
+          "type": "number",
+          "label": "Среднемесячный доход",
+          "unit": "₽",
+          "hint": "За последние 3 месяца",
+          "required": true,
+          "privacy": "masked",
+          "visible_if": { "element": "income_type", "in": ["pension", "salary", "benefits"] },
+          "validation": [{ "rule": "range", "min": 0, "max": 10000000 }]
+        },
+        {
+          "id": "income_info",
+          "type": "info",
+          "style": "info",
+          "text": "Для пенсионеров размер пенсии можно посмотреть в приложении СФР или в выписке."
+        }
+      ]
+    },
+    {
+      "id": "payment",
+      "title": "Способ получения",
+      "description": "Куда перечислять компенсацию",
+      "elements": [
+        {
+          "id": "payment_method",
+          "type": "radio",
+          "label": "Способ получения",
+          "required": true,
+          "privacy": "public",
+          "options": [
+            { "value": "bank", "label": "На банковский счёт" },
+            { "value": "post", "label": "Через почтовое отделение" }
+          ]
+        },
+        {
+          "id": "bank_bik",
+          "type": "text",
+          "label": "БИК банка",
+          "hint": "9 цифр, есть в реквизитах счёта",
+          "required": true,
+          "privacy": "masked",
+          "visible_if": { "element": "payment_method", "equals": "bank" },
+          "validation": [{ "rule": "pattern", "regex": "^\\d{9}$", "details": "9 цифр" }]
+        },
+        {
+          "id": "account_number",
+          "type": "text",
+          "label": "Номер счёта",
+          "hint": "20 цифр. Это не номер карты",
+          "required": true,
+          "privacy": "owner_only",
+          "visible_if": { "element": "payment_method", "equals": "bank" },
+          "validation": [{ "rule": "pattern", "regex": "^\\d{20}$", "details": "20 цифр, не номер карты" }],
+          "operator_hint": "Частая ошибка: вводят 16 цифр номера карты вместо 20 цифр счёта."
+        },
+        {
+          "id": "post_office_index",
+          "type": "text",
+          "label": "Индекс почтового отделения",
+          "required": true,
+          "privacy": "masked",
+          "visible_if": { "element": "payment_method", "equals": "post" },
+          "validation": [{ "rule": "pattern", "regex": "^\\d{6}$", "details": "6 цифр" }]
+        },
+        {
+          "id": "payment_warning",
+          "type": "info",
+          "style": "warning",
+          "text": "Никто, включая помощника и сотрудника МФЦ, не должен просить у вас номер карты, CVC-код или коды из SMS."
+        }
+      ]
+    },
+    {
+      "id": "review",
+      "title": "Проверка данных",
+      "description": "Проверьте, всё ли верно. Нажмите «Изменить», чтобы вернуться к шагу",
+      "elements": [
+        { "id": "review_summary", "type": "summary", "label": "Данные заявления" },
+        {
+          "id": "consent_personal_data",
+          "type": "checkbox",
+          "label": "Я даю согласие на обработку персональных данных",
+          "required": true,
+          "privacy": "public",
+          "validation": [{ "rule": "must_be_checked" }]
+        }
+      ]
+    },
+    {
+      "id": "confirmation",
+      "title": "Подтверждение и отправка",
+      "description": "Подтвердите заявление кодом из SMS",
+      "elements": [
+        {
+          "id": "confirmation_info",
+          "type": "info",
+          "style": "warning",
+          "text": "Мы отправили код в SMS. Никому не сообщайте его: ни помощнику, ни сотруднику МФЦ. Они не могут и не должны его знать."
+        },
+        {
+          "id": "confirmation_code",
+          "type": "otp",
+          "label": "Код из SMS",
+          "required": true,
+          "privacy": "owner_only",
+          "validation": [{ "rule": "pattern", "regex": "^\\d{4}$", "details": "4 цифры" }]
+        },
+        {
+          "id": "submit_application",
+          "type": "action",
+          "label": "Отправить заявление",
+          "action_policy": "owner_only"
+        }
+      ]
+    }
+  ]
+}
