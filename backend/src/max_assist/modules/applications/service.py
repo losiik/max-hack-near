@@ -1,10 +1,12 @@
 import hashlib
+import logging
 import secrets
+from collections.abc import Awaitable, Callable
 from datetime import timedelta
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from max_assist.errors import Conflict, Forbidden, NotFound, Unprocessable
@@ -19,6 +21,25 @@ from max_assist.utils import now
 CODE_TTL = timedelta(minutes=5)
 CODE_RESEND_DELAY = timedelta(seconds=30)
 MAX_CODE_ATTEMPTS = 5
+
+logger = logging.getLogger("max_assist.applications")
+
+listeners: list[Callable[[str, ServiceSession, dict[str, Any]], Awaitable[None]]] = []
+active_assist_lookup: Callable[[AsyncSession, UUID], Awaitable[UUID | None]] | None = None
+
+
+async def active_assist_id(session: AsyncSession, row: ServiceSession) -> UUID | None:
+    if active_assist_lookup is None:
+        return None
+    return await active_assist_lookup(session, row.id)
+
+
+async def notify(event: str, row: ServiceSession, **details: Any) -> None:
+    for listener in listeners:
+        try:
+            await listener(event, row, details)
+        except Exception:
+            logger.exception("listener failed on %s", event)
 
 
 def read_values(row: ServiceSession) -> dict[str, Any]:
@@ -35,10 +56,15 @@ async def definition_of(session: AsyncSession, row: ServiceSession) -> ServiceDe
     return await catalog_service.load_definition(session, row.service_code, row.service_version)
 
 
-async def get_owned(session: AsyncSession, user: User, session_id: UUID) -> ServiceSession:
+async def get_by_id(session: AsyncSession, session_id: UUID) -> ServiceSession:
     row = await session.get(ServiceSession, session_id)
     if row is None:
         raise NotFound("Заявление не найдено")
+    return row
+
+
+async def get_owned(session: AsyncSession, user: User, session_id: UUID) -> ServiceSession:
+    row = await get_by_id(session, session_id)
     if row.owner_id != user.id:
         raise Forbidden("Заявление принадлежит другому пользователю")
     return row
@@ -126,10 +152,13 @@ async def update_fields(
     for error in type_errors:
         step_errors[error.element_id] = error
 
+    visible = {element.id for element in form.visible_inputs(step)}
     kept = [
         error
         for error in row.last_errors.get(step.id, [])
-        if error["element_id"] not in touched and error["element_id"] not in step_errors
+        if error["element_id"] in visible
+        and error["element_id"] not in touched
+        and error["element_id"] not in step_errors
     ]
     row.last_errors = {
         **row.last_errors,
@@ -140,6 +169,7 @@ async def update_fields(
     row.version += 1
     row.updated_at = now()
     await session.commit()
+    await notify("fields_updated", row, element_ids=list(raw_values))
     return row
 
 
@@ -162,6 +192,7 @@ async def navigate(
         if errors:
             row.last_errors = {**row.last_errors, current.id: [error.as_dict() for error in errors]}
             await session.commit()
+            await notify("validation_failed", row, step_id=current.id)
             raise Unprocessable(
                 "step_invalid",
                 "Проверьте заполнение шага",
@@ -195,6 +226,7 @@ async def navigate(
     row.version += 1
     row.updated_at = now()
     await session.commit()
+    await notify("step_changed", row, from_step_id=current.id)
     return row
 
 
@@ -262,6 +294,7 @@ async def submit(session: AsyncSession, user: User, session_id: UUID, code: str)
         }
         await session.commit()
         step_id = next(iter(errors_by_step))
+        await notify("validation_failed", row, step_id=step_id)
         raise Unprocessable(
             "step_invalid",
             "В заявлении есть незаполненные поля",
@@ -285,6 +318,7 @@ async def submit(session: AsyncSession, user: User, session_id: UUID, code: str)
     row.confirmation_expires_at = None
     row.version += 1
     await session.commit()
+    await notify("submitted", row)
     return row
 
 
@@ -308,10 +342,8 @@ def check_confirmation_code(row: ServiceSession, code: str) -> None:
 
 
 async def next_application_number(session: AsyncSession) -> str:
-    submitted = await session.scalar(
-        select(func.count()).where(ServiceSession.status == "submitted")
-    )
-    return f"ЖКУ-{now().year}-{(submitted or 0) + 1:06d}"
+    number = await session.scalar(text("select nextval('application_number_seq')"))
+    return f"ЖКУ-{now().year}-{number:06d}"
 
 
 async def cancel(session: AsyncSession, user: User, session_id: UUID) -> ServiceSession:
@@ -321,6 +353,7 @@ async def cancel(session: AsyncSession, user: User, session_id: UUID) -> Service
     row.updated_at = now()
     row.version += 1
     await session.commit()
+    await notify("cancelled", row)
     return row
 
 

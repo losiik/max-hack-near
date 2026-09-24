@@ -14,4 +14,4 @@ COPY src ./src
 
 EXPOSE 8000
 
-CMD ["sh", "-c", "alembic upgrade head && uvicorn max_assist.main:app --host 0.0.0.0 --port 8000 --app-dir src"]
+CMD ["sh", "-c", "alembic upgrade head && exec uvicorn max_assist.main:app --host 0.0.0.0 --port 8000 --app-dir src --timeout-graceful-shutdown 10"]

@@ -91,7 +91,11 @@ class InboxMessageOut(BaseModel):
         return cls(id=row.id, text=row.text, created_at=row.created_at)
 
 
-def session_out(row: ServiceSession, definition: ServiceDefinition) -> ServiceSessionOut:
+def session_out(
+    row: ServiceSession,
+    definition: ServiceDefinition,
+    active_assist_session_id: UUID | None = None,
+) -> ServiceSessionOut:
     steps = []
     for index, step in enumerate(definition.steps, start=1):
         if step.id == row.current_step_id:
@@ -116,6 +120,7 @@ def session_out(row: ServiceSession, definition: ServiceDefinition) -> ServiceSe
         steps=steps,
         values=read_values(row),
         errors=[FieldErrorOut(**error.as_dict()) for error in current_step_errors(row)],
+        active_assist_session_id=active_assist_session_id,
         application_number=row.application_number,
         version=row.version,
         created_at=row.created_at,

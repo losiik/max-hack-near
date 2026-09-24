@@ -1,9 +1,11 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Response
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from max_assist.deps import CurrentUser, DbSession
 from max_assist.modules.applications import service
+from max_assist.modules.applications.models import ServiceSession
 from max_assist.modules.applications.schemas import (
     ConfirmationCodeOut,
     InboxMessageOut,
@@ -20,6 +22,11 @@ from max_assist.modules.applications.service import CODE_RESEND_DELAY, CODE_TTL
 router = APIRouter(prefix="/service-sessions", tags=["applications"])
 
 
+async def respond(session: AsyncSession, row: ServiceSession) -> ServiceSessionOut:
+    definition = await service.definition_of(session, row)
+    return session_out(row, definition, await service.active_assist_id(session, row))
+
+
 @router.post("", response_model=ServiceSessionOut)
 async def start_session(
     payload: StartSessionRequest,
@@ -29,8 +36,7 @@ async def start_session(
 ) -> ServiceSessionOut:
     row, created = await service.start_session(session, user, payload.service_code)
     response.status_code = 201 if created else 200
-    definition = await service.definition_of(session, row)
-    return session_out(row, definition)
+    return await respond(session, row)
 
 
 @router.get("", response_model=list[ServiceSessionOut])
@@ -40,18 +46,13 @@ async def list_sessions(
     status: str | None = None,
 ) -> list[ServiceSessionOut]:
     rows = await service.list_sessions(session, user, status)
-    result = []
-    for row in rows:
-        definition = await service.definition_of(session, row)
-        result.append(session_out(row, definition))
-    return result
+    return [await respond(session, row) for row in rows]
 
 
 @router.get("/{session_id}", response_model=ServiceSessionOut)
 async def get_session(session_id: UUID, user: CurrentUser, session: DbSession) -> ServiceSessionOut:
     row = await service.get_owned(session, user, session_id)
-    definition = await service.definition_of(session, row)
-    return session_out(row, definition)
+    return await respond(session, row)
 
 
 @router.patch("/{session_id}/fields", response_model=ServiceSessionOut)
@@ -62,8 +63,7 @@ async def update_fields(
     session: DbSession,
 ) -> ServiceSessionOut:
     row = await service.update_fields(session, user, session_id, payload.values, payload.version)
-    definition = await service.definition_of(session, row)
-    return session_out(row, definition)
+    return await respond(session, row)
 
 
 @router.post("/{session_id}/navigation", response_model=ServiceSessionOut)
@@ -74,8 +74,7 @@ async def navigate(
     session: DbSession,
 ) -> ServiceSessionOut:
     row = await service.navigate(session, user, session_id, payload.action, payload.step_id)
-    definition = await service.definition_of(session, row)
-    return session_out(row, definition)
+    return await respond(session, row)
 
 
 @router.post("/{session_id}/confirmation-code", response_model=ConfirmationCodeOut)
@@ -115,5 +114,4 @@ async def submit(
 @router.post("/{session_id}/cancel", response_model=ServiceSessionOut)
 async def cancel(session_id: UUID, user: CurrentUser, session: DbSession) -> ServiceSessionOut:
     row = await service.cancel(session, user, session_id)
-    definition = await service.definition_of(session, row)
-    return session_out(row, definition)
+    return await respond(session, row)

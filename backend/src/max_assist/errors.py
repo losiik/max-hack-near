@@ -41,6 +41,11 @@ class Conflict(AppError):
         super().__init__(code, message, 409, details)
 
 
+class Gone(AppError):
+    def __init__(self, code: str, message: str) -> None:
+        super().__init__(code, message, 410)
+
+
 class Unprocessable(AppError):
     def __init__(self, code: str, message: str, details: dict[str, Any] | None = None) -> None:
         super().__init__(code, message, 422, details)

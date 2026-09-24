@@ -19,6 +19,13 @@ async def get_session() -> AsyncIterator[AsyncSession]:
         yield session
 
 
+async def load_user(session: AsyncSession, token: str) -> User:
+    user = await session.get(User, read_access_token(token))
+    if user is None:
+        raise Unauthorized("Пользователь не найден")
+    return user
+
+
 async def get_current_user(
     session: Annotated[AsyncSession, Depends(get_session)],
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)],
@@ -26,10 +33,7 @@ async def get_current_user(
     if credentials is None:
         raise Unauthorized()
 
-    user = await session.get(User, read_access_token(credentials.credentials))
-    if user is None:
-        raise Unauthorized("Пользователь не найден")
-
+    user = await load_user(session, credentials.credentials)
     user.last_seen_at = now()
     await session.commit()
     return user

@@ -11,3 +11,8 @@ known-first-party = ["max_assist", "tests"]
 [tool.pytest.ini_options]
 pythonpath = ["src", "."]
 asyncio_mode = "auto"
+timeout = 30
+filterwarnings = [
+    "error::pytest.PytestUnraisableExceptionWarning",
+    "error::sqlalchemy.exc.SAWarning",
+]

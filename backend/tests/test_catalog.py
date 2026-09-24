@@ -3,6 +3,9 @@ from pathlib import Path
 
 import pytest
 
+from max_assist.db import session_factory
+from max_assist.errors import NotFound
+from max_assist.modules.catalog import service as catalog_service
 from max_assist.modules.catalog.schema import ServiceDefinition
 from tests.helpers import login
 
@@ -141,3 +144,14 @@ async def test_unknown_service_is_not_found(client):
 
     assert response.status_code == 404
     assert response.json()["error"]["code"] == "not_found"
+
+
+async def test_definition_is_loaded_by_exact_version(client):
+    catalog_service._definitions.clear()
+
+    async with session_factory() as db:
+        pinned = await catalog_service.load_definition(db, "housing_compensation", 1)
+        with pytest.raises(NotFound):
+            await catalog_service.load_definition(db, "housing_compensation", 99)
+
+    assert pinned.version == 1

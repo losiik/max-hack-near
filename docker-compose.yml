@@ -1,12 +1,43 @@
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   postgres:
     image: postgres:16
+    restart: unless-stopped
+    command:
+      - postgres
+      - -c
+      - max_connections=50
+      - -c
+      - idle_in_transaction_session_timeout=60000
+      - -c
+      - tcp_keepalives_idle=60
+      - -c
+      - tcp_keepalives_interval=10
+      - -c
+      - tcp_keepalives_count=6
+      - -c
+      - max_wal_size=512MB
+      - -c
+      - min_wal_size=80MB
+      - -c
+      - temp_file_limit=256MB
+      - -c
+      - autovacuum_naptime=30s
+      - -c
+      - autovacuum_vacuum_scale_factor=0.05
+      - -c
+      - autovacuum_analyze_scale_factor=0.05
     environment:
       POSTGRES_USER: assist
       POSTGRES_PASSWORD: assist
       POSTGRES_DB: assist
     ports:
-      - "5433:5432"
+      - "${POSTGRES_PORT:-5433}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -14,9 +45,17 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+    stop_grace_period: 30s
+    logging: *logging
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1g
 
   api:
     build: ./backend
+    restart: unless-stopped
     environment:
       APP_ENV: dev
       DATABASE_URL: postgresql+asyncpg://assist:assist@postgres:5432/assist
@@ -26,10 +65,17 @@ services:
       MAX_BOT_TOKEN: ${MAX_BOT_TOKEN:-}
       MAX_BOT_USERNAME: ${MAX_BOT_USERNAME:-max_assist_bot}
     ports:
-      - "8000:8000"
+      - "${API_PORT:-8000}:8000"
     depends_on:
       postgres:
         condition: service_healthy
+    stop_grace_period: 15s
+    logging: *logging
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512m
 
   # frontend добавляет свой сервис сюда, когда появится сборка:
   # web:
