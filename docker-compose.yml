@@ -33,11 +33,11 @@ services:
       - -c
       - autovacuum_analyze_scale_factor=0.05
     environment:
-      POSTGRES_USER: assist
-      POSTGRES_PASSWORD: assist
-      POSTGRES_DB: assist
+      POSTGRES_USER: ${POSTGRES_USER:-assist}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-assist}
+      POSTGRES_DB: ${POSTGRES_DB:-assist}
     ports:
-      - "${POSTGRES_PORT:-5433}:5432"
+      - "${POSTGRES_BIND_ADDRESS:-127.0.0.1}:${POSTGRES_PORT:-5433}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -57,22 +57,22 @@ services:
     build: ./backend
     restart: unless-stopped
     environment:
-      APP_ENV: dev
-      DATABASE_URL: postgresql+asyncpg://assist:assist@postgres:5432/assist
-      JWT_SECRET: dev-secret-change-me-32-bytes-minimum
-      FIELD_ENCRYPTION_KEY: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
-      CORS_ORIGINS: http://localhost:5173,http://localhost:3000
+      APP_ENV: ${APP_ENV:-dev}
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://assist:assist@postgres:5432/assist}
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me-32-bytes-minimum}
+      FIELD_ENCRYPTION_KEY: ${FIELD_ENCRYPTION_KEY:-MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://localhost:3000}
       MAX_BOT_TOKEN: ${MAX_BOT_TOKEN:-}
       MAX_BOT_USERNAME: ${MAX_BOT_USERNAME:-max_assist_bot}
       LIVEKIT_URL: ${LIVEKIT_URL:-ws://localhost:7880}
       LIVEKIT_API_URL: http://livekit:7880
-      LIVEKIT_API_KEY: devkey
-      LIVEKIT_API_SECRET: dev-livekit-secret-change-me-32-bytes
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-devkey}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-dev-livekit-secret-change-me-32-bytes}
       RECORDINGS_DIR: /recordings
     volumes:
       - ./recordings:/recordings
     ports:
-      - "${API_PORT:-8000}:8000"
+      - "${API_BIND_ADDRESS:-127.0.0.1}:${API_PORT:-8000}:8000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -91,11 +91,11 @@ services:
     restart: unless-stopped
     command: ["--config", "/etc/livekit.yaml", "--node-ip", "${LIVEKIT_NODE_IP:-127.0.0.1}"]
     environment:
-      LIVEKIT_KEYS: "devkey: dev-livekit-secret-change-me-32-bytes"
+      LIVEKIT_KEYS: "${LIVEKIT_API_KEY:-devkey}: ${LIVEKIT_API_SECRET:-dev-livekit-secret-change-me-32-bytes}"
     volumes:
       - ./livekit/livekit.yaml:/etc/livekit.yaml:ro
     ports:
-      - "7880:7880"
+      - "${LIVEKIT_BIND_ADDRESS:-127.0.0.1}:7880:7880"
       - "7881:7881"
       - "7882:7882/udp"
     extra_hosts:
@@ -143,13 +143,8 @@ services:
           cpus: "0.5"
           memory: 128m
 
-  # frontend добавляет свой сервис сюда, когда появится сборка:
-  # web:
-  #   build: ./frontend
-  #   ports:
-  #     - "5173:5173"
-  #   depends_on:
-  #     - api
+  # Frontend собирается командой `cd frontend && npm run build`.
+  # В production каталог dist публикуется Nginx с VM.
 
 volumes:
   pgdata:

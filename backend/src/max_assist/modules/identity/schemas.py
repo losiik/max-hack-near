@@ -3,7 +3,7 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
-from max_assist.modules.identity.models import User
+from max_assist.modules.identity.models import StaffProfile, User
 
 
 class MaxLoginRequest(BaseModel):
@@ -14,15 +14,38 @@ class DevLoginRequest(BaseModel):
     user_key: str
 
 
+class StaffOut(BaseModel):
+    role: str
+    organization: str
+    position: str | None
+    verified: bool
+
+    @classmethod
+    def of(cls, profile: StaffProfile | None) -> "StaffOut | None":
+        if profile is None:
+            return None
+        return cls(
+            role=profile.role,
+            organization=profile.organization,
+            position=profile.position,
+            verified=profile.verified_at is not None,
+        )
+
+
 class UserOut(BaseModel):
     id: UUID
     display_name: str
     photo_url: str | None
-    staff: None = None
+    staff: StaffOut | None
 
     @classmethod
     def of(cls, user: User) -> "UserOut":
-        return cls(id=user.id, display_name=user.display_name, photo_url=user.photo_url)
+        return cls(
+            id=user.id,
+            display_name=user.display_name,
+            photo_url=user.photo_url,
+            staff=StaffOut.of(user.staff),
+        )
 
 
 class TokenOut(BaseModel):
@@ -33,6 +56,9 @@ class TokenOut(BaseModel):
 
 class MeCounters(BaseModel):
     drafts: int
+    active_assist_sessions: int
+    trusted_helpers: int
+    helping_for: int
 
 
 class MeOut(BaseModel):
@@ -41,7 +67,7 @@ class MeOut(BaseModel):
     last_name: str | None
     display_name: str
     photo_url: str | None
-    staff: None = None
+    staff: StaffOut | None
     recording_consent: bool
     counters: MeCounters
 

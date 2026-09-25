@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from max_assist.config import settings
 from max_assist.errors import AppError, Forbidden, NotFound
 from max_assist.modules.identity.max_init_data import parse_init_data
-from max_assist.modules.identity.models import User
+from max_assist.modules.identity.models import StaffProfile, User
 from max_assist.utils import now
 
 DEV_USERS = {
@@ -25,6 +25,7 @@ DEV_USERS = {
         "last_name": "Смирнова",
         "username": "anna_s",
         "role_hint": "сотрудник МФЦ",
+        "staff": {"organization": "МФЦ Фрунзенского района", "position": "Главный специалист"},
     },
     "oleg": {
         "first_name": "Олег",
@@ -49,7 +50,9 @@ async def login_with_max(session: AsyncSession, init_data: str) -> User:
 
     user = await session.scalar(select(User).where(User.max_user_id == max_user_id))
     if user is None:
-        user = User(max_user_id=max_user_id, first_name=profile.get("first_name") or "Пользователь")
+        user = User(
+            max_user_id=max_user_id, first_name=profile.get("first_name") or "Пользователь", staff=None
+        )
         session.add(user)
 
     user.first_name = profile.get("first_name") or user.first_name
@@ -76,8 +79,13 @@ async def dev_login(session: AsyncSession, user_key: str) -> User:
             first_name=profile["first_name"],
             last_name=profile["last_name"],
             username=profile["username"],
+            staff=None,
         )
         session.add(user)
+
+    staff = profile.get("staff")
+    if staff is not None and user.staff is None:
+        user.staff = StaffProfile(verified_at=now(), **staff)
 
     user.last_seen_at = now()
     await session.commit()

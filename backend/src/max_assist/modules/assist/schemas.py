@@ -6,7 +6,6 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from max_assist.config import settings
 from max_assist.modules.applications import service as applications_service
 from max_assist.modules.applications.models import ServiceSession
 from max_assist.modules.assist import domain
@@ -23,6 +22,9 @@ from max_assist.modules.assist.visibility import ApplicationSnapshot, ProjectedS
 from max_assist.modules.catalog import service as catalog_service
 from max_assist.modules.catalog.schema import Option, ServiceDefinition
 from max_assist.modules.identity.models import User
+from max_assist.modules.notifications import service as notifications
+from max_assist.modules.support_desk import queries as support_queries
+from max_assist.modules.trust import service as trust_service
 from max_assist.modules.voice.models import Recording
 from max_assist.utils import now
 
@@ -32,7 +34,8 @@ class CreateAssistRequest(BaseModel):
 
 
 class InviteRequest(BaseModel):
-    kind: Literal["link"] = "link"
+    kind: Literal["link", "trusted_call"] = "link"
+    trusted_helper_id: UUID | None = None
 
 
 class ServiceRefOut(BaseModel):
@@ -119,10 +122,18 @@ class AnnotationOut(BaseModel):
     expires_at: datetime | None
 
 
+class OperatorRequestStateOut(BaseModel):
+    id: UUID
+    status: str
+    topic: str
+    position: int | None
+
+
 class SnapshotOut(ProjectedState):
     last_seq: int
     session: AssistSessionOut
     annotations: list[AnnotationOut]
+    operator_request: OperatorRequestStateOut | None
 
 
 class InviteOut(BaseModel):
@@ -132,7 +143,7 @@ class InviteOut(BaseModel):
     deep_link: str
     share_text: str
     expires_at: datetime
-    delivery: Literal["share_required"]
+    delivery: Literal["share_required", "bot_message"]
 
 
 class OwnerOut(BaseModel):
@@ -216,8 +227,14 @@ class HelperOut(BaseModel):
     badge: BadgeOut | None
 
 
+class CallAgainOut(BaseModel):
+    trusted_helper_id: UUID
+    display_name: str
+
+
 class SummaryActionsOut(BaseModel):
     can_continue: bool
+    can_call_again: list[CallAgainOut]
 
 
 class SummaryOut(BaseModel):
@@ -310,7 +327,7 @@ class ReplayOut(BaseModel):
 
 
 def deep_link(token: str) -> str:
-    return f"https://max.ru/{settings.max_bot_username}?startapp=as_{token}"
+    return notifications.app_link(f"as_{token}")
 
 
 def ws_url(assist_id: UUID) -> str:
@@ -417,6 +434,7 @@ async def invite_view(
     invite: AssistInvite,
     token: str,
     user: User,
+    delivered: bool = False,
 ) -> InviteOut:
     _, definition = await application_of(db, assist)
     return InviteOut(
@@ -426,7 +444,8 @@ async def invite_view(
         deep_link=deep_link(token),
         share_text=f"{user.display_name} просит помочь с услугой «{definition.title}». Подключиться:",
         expires_at=invite.expires_at,
-        delivery="share_required",
+        # если бот не смог написать сам, владелец пересылает ссылку через shareMaxContent
+        delivery="bot_message" if delivered else "share_required",
     )
 
 
@@ -439,6 +458,7 @@ async def preview_view(
     service_session, definition = await application_of(db, assist)
     owner = await db.get(User, assist.owner_id)
     step = current_step_of(service_session, definition)
+    trusted = await trust_service.is_trusted(db, assist.owner_id, viewer_id)
 
     return InvitePreviewOut(
         status=domain.invite_status(assist, invite),
@@ -447,8 +467,8 @@ async def preview_view(
         service=ServiceTitleOut(title=definition.title),
         current_step=InviteStepOut(index=step.index, total=definition.total_steps, title=step.title),
         is_owner=viewer_id == assist.owner_id,
-        you_are_trusted=False,
-        requires_owner_approval=True,
+        you_are_trusted=trusted,
+        requires_owner_approval=not trusted,
         expires_at=invite.expires_at,
     )
 
@@ -469,6 +489,19 @@ async def active_view(db: AsyncSession, assist: AssistSession, viewer_id: UUID) 
         current_step=ShortStepOut(index=step.index, title=step.title),
         total_steps=definition.total_steps,
     )
+
+
+async def call_again(db: AsyncSession, assist: AssistSession) -> list[CallAgainOut]:
+    found = []
+    for item in assist.participants:
+        if item.role == "owner" or item.joined_at is None or item.user_id is None:
+            continue
+        link = await trust_service.active_link(db, assist.owner_id, item.user_id)
+        if link is not None:
+            found.append(
+                CallAgainOut(trusted_helper_id=link.id, display_name=link.alias or item.display_name)
+            )
+    return found
 
 
 async def summary_view(db: AsyncSession, assist: AssistSession) -> SummaryOut:
@@ -497,7 +530,7 @@ async def summary_view(db: AsyncSession, assist: AssistSession) -> SummaryOut:
         stopped_at_step=current_step_of(service_session, definition),
         service_session_status=service_session.status if service_session else "deleted",
         recording=recording_state(await recording_of(db, assist.id)),
-        actions=SummaryActionsOut(can_continue=can_continue),
+        actions=SummaryActionsOut(can_continue=can_continue, can_call_again=await call_again(db, assist)),
     )
 
 
@@ -676,6 +709,7 @@ async def snapshot_view(db: AsyncSession, assist: AssistSession, viewer_id: UUID
         last_seq=assist.last_seq,
         session=await session_view(db, assist, viewer_id),
         annotations=[item for item in annotations if item is not None],
+        operator_request=await support_queries.current(db, assist.id),
         **dict(state),
     )
 

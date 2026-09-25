@@ -74,7 +74,10 @@ def test_init_data_without_user_is_rejected():
         parse_init_data(raw, BOT_TOKEN, 86400)
 
 
-async def test_login_through_max_is_unavailable_without_bot_token(client):
+async def test_login_through_max_is_unavailable_without_bot_token(client, monkeypatch):
+    # токен может быть прописан в .env, поэтому убираем его явно
+    monkeypatch.setattr(settings, "max_bot_token", "")
+
     response = await client.post("/api/v1/auth/max", json={"init_data": build()})
 
     assert response.status_code == 503

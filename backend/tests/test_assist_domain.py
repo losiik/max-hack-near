@@ -5,7 +5,7 @@ import pytest
 
 from max_assist.errors import Conflict, Forbidden, Gone, NotFound, Unprocessable
 from max_assist.modules.assist import domain
-from max_assist.modules.identity.models import User
+from max_assist.modules.identity.models import StaffProfile, User
 from max_assist.utils import now
 
 
@@ -338,3 +338,35 @@ def test_helpers_do_not_manage_and_do_not_see_sensitive_values():
     assert {"view_sensitive_values", "submit", "invite"} <= owner
     assert "view_operator_hints" not in domain.capabilities_of("invited_helper")
     assert "view_operator_hints" in domain.capabilities_of("government_operator")
+
+
+def operator():
+    user = person("Анна", "Смирнова")
+    user.staff = StaffProfile(organization="МФЦ", verified_at=now())
+    return user
+
+
+def test_only_staff_join_from_the_queue_and_not_into_own_help(session, owner):
+    with pytest.raises(Forbidden):
+        domain.add_operator(session, person("Сергей"))
+
+    owner.staff = StaffProfile(organization="МФЦ")
+    with pytest.raises(Unprocessable):
+        domain.add_operator(session, owner)
+
+
+def test_operator_joins_once_and_can_come_back(session):
+    anna = operator()
+
+    first = domain.add_operator(session, anna)
+    with pytest.raises(Conflict):
+        domain.add_operator(session, anna)
+    domain.leave(session, anna)
+    again = domain.add_operator(session, anna)
+
+    assert again is first
+    assert (again.status, again.role, again.display_name) == (
+        "active",
+        "government_operator",
+        "Анна Смирнова",
+    )

@@ -16,6 +16,8 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:5173"
     max_bot_token: str = ""
     max_bot_username: str = "max_assist_bot"
+    # у platform-api2 сертификат Минцифры, которого нет в доверенных ни в Windows, ни в образе
+    max_api_base: str = "https://platform-api.max.ru"
     init_data_max_age_seconds: int = 86400
 
     cleanup_enabled: bool = True

@@ -73,8 +73,10 @@ async def create_invite(
     user: CurrentUser,
     db: DbSession,
 ) -> InviteOut:
-    assist, invite, token = await service.create_invite(db, user, assist_id)
-    return await invite_view(db, assist, invite, token, user)
+    assist, invite, token, sent = await service.create_invite(
+        db, user, assist_id, payload.kind, payload.trusted_helper_id
+    )
+    return await invite_view(db, assist, invite, token, user, sent)
 
 
 @router.delete("/assist-sessions/{assist_id}/invites/{invite_id}", status_code=204)
@@ -120,10 +122,10 @@ async def helper_is_ready(callback_id: UUID, user: CurrentUser, db: DbSession) -
 
 @router.post("/help-callbacks/{callback_id}/call", response_model=CallBackOut, status_code=201)
 async def call_back(callback_id: UUID, user: CurrentUser, db: DbSession) -> CallBackOut:
-    assist, invite, token = await service.call_back(db, user, callback_id)
+    assist, invite, token, sent = await service.call_back(db, user, callback_id)
     return CallBackOut(
         assist_session=await session_view(db, assist, user.id),
-        invite=await invite_view(db, assist, invite, token, user),
+        invite=await invite_view(db, assist, invite, token, user, sent),
     )
 
 

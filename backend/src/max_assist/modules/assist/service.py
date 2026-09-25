@@ -1,11 +1,11 @@
-from datetime import timedelta
+from datetime import datetime, timedelta
 from uuid import UUID
 
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from max_assist.config import settings
-from max_assist.errors import Conflict, Forbidden, NotFound
+from max_assist.errors import Conflict, Forbidden, NotFound, Unprocessable
 from max_assist.modules.applications import service as applications_service
 from max_assist.modules.assist import callbacks, domain, events, journal
 from max_assist.modules.assist.models import (
@@ -18,6 +18,7 @@ from max_assist.modules.assist.models import (
 from max_assist.modules.assist.realtime import hub
 from max_assist.modules.identity.models import User
 from max_assist.modules.notifications import service as notifications
+from max_assist.modules.trust import service as trust_service
 from max_assist.utils import now
 
 HIDDEN_STATUSES = {"rejected", "removed"}
@@ -100,15 +101,50 @@ async def list_active(session: AsyncSession, user: User) -> list[AssistSession]:
     return list(await session.scalars(query))
 
 
+async def last_help(session: AsyncSession, owner_id: UUID, helper_id: UUID) -> datetime | None:
+    return await session.scalar(
+        select(func.max(AssistParticipant.joined_at))
+        .join(AssistSession, AssistSession.id == AssistParticipant.assist_session_id)
+        .where(AssistSession.owner_id == owner_id, AssistParticipant.user_id == helper_id)
+    )
+
+
+async def live_session_with(session: AsyncSession, owner_id: UUID, helper_id: UUID) -> UUID | None:
+    return await session.scalar(
+        select(AssistSession.id)
+        .join(AssistParticipant, AssistParticipant.assist_session_id == AssistSession.id)
+        .where(
+            AssistSession.owner_id == owner_id,
+            AssistSession.status != "ended",
+            AssistParticipant.user_id == helper_id,
+            AssistParticipant.status.in_(domain.LIVE_STATUSES),
+        )
+    )
+
+
 async def create_invite(
     session: AsyncSession,
     user: User,
     assist_id: UUID,
-) -> tuple[AssistSession, AssistInvite, str]:
+    kind: str = "link",
+    trusted_helper_id: UUID | None = None,
+) -> tuple[AssistSession, AssistInvite, str, bool]:
     assist = await get_visible(session, user, assist_id, lock=True)
-    invite, token = domain.create_invite(assist, user)
+    target = None
+    if kind == "trusted_call":
+        if trusted_helper_id is None:
+            raise Unprocessable("validation_error", "Не выбран близкий")
+        target = (await trust_service.own_helper(session, user, trusted_helper_id)).helper_id
+
+    invite, token = domain.create_invite(assist, user, kind, target)
+    title = await service_title(session, assist.service_session_id)
+    helper = await session.get(User, target) if target else None
     await session.commit()
-    return assist, invite, token
+
+    delivered = False
+    if helper is not None:
+        delivered = await notifications.help_requested(helper, user.display_name, title, token)
+    return assist, invite, token, delivered
 
 
 async def revoke_invite(session: AsyncSession, user: User, assist_id: UUID, invite_id: UUID) -> None:
@@ -137,8 +173,14 @@ async def accept_invite(
     token: str,
 ) -> tuple[AssistSession, AssistParticipant]:
     assist, invite = await find_invite(session, token, lock=True)
-    participant = domain.accept_invite(assist, invite, user)
-    deliveries = await events.join_requested(session, assist, participant)
+    was_waiting = assist.status == "waiting"
+    # близкого из списка владельца подтверждать не нужно, он подключается сразу
+    trusted = await trust_service.is_trusted(session, assist.owner_id, user.id)
+    participant = domain.accept_invite(assist, invite, user, trusted)
+    if participant.status == "active":
+        deliveries = await events.joined(session, assist, participant, was_waiting)
+    else:
+        deliveries = await events.join_requested(session, assist, participant)
     journal.record(session, assist.id, deliveries)
 
     await session.commit()
@@ -168,8 +210,8 @@ async def decline_invite(session: AsyncSession, user: User, token: str) -> tuple
 
     await session.commit()
     await events.publish(assist.id, deliveries)
-    notifications.helper_busy(owner.id, user.display_name)
-    notifications.come_back_later(user.id, owner.display_name, callback.id)
+    await notifications.helper_busy(owner, user.display_name)
+    await notifications.come_back_later(user, owner.display_name, callback.id)
     return assist, callback
 
 
@@ -205,8 +247,9 @@ async def helper_is_ready(session: AsyncSession, user: User, callback_id: UUID) 
     callback = await find_callback(session, callback_id, user.id, as_owner=False)
     callbacks.mark_ready(callback)
     title = await service_title(session, callback.service_session_id)
+    owner = await session.get(User, callback.owner_id)
     await session.commit()
-    notifications.helper_ready(callback.owner_id, user.display_name, title)
+    await notifications.helper_ready(owner, user.display_name, title)
     return callback
 
 
@@ -214,7 +257,7 @@ async def call_back(
     session: AsyncSession,
     user: User,
     callback_id: UUID,
-) -> tuple[AssistSession, AssistInvite, str]:
+) -> tuple[AssistSession, AssistInvite, str, bool]:
     callback = await find_callback(session, callback_id, user.id, as_owner=True)
     callbacks.require_open(callback)
 
@@ -224,13 +267,15 @@ async def call_back(
     else:
         assist = await get_visible(session, user, assist_id, lock=True)
 
-    invite, token = domain.create_invite(assist, user)
-    invite.target_user_id = callback.helper_id
+    trusted = await trust_service.is_trusted(session, user.id, callback.helper_id)
+    kind = "trusted_call" if trusted else "link"
+    invite, token = domain.create_invite(assist, user, kind, callback.helper_id)
     callbacks.close(callback, "used")
     title = await service_title(session, callback.service_session_id)
+    helper = await session.get(User, callback.helper_id)
     await session.commit()
-    notifications.help_requested(callback.helper_id, user.display_name, title, token)
-    return assist, invite, token
+    delivered = await notifications.help_requested(helper, user.display_name, title, token)
+    return assist, invite, token, delivered
 
 
 async def dismiss_callback(session: AsyncSession, user: User, callback_id: UUID) -> None:

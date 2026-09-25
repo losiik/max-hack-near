@@ -4,6 +4,7 @@ from max_assist.config import settings
 from max_assist.deps import CurrentUser, DbSession
 from max_assist.errors import Forbidden
 from max_assist.modules.applications import service as applications_service
+from max_assist.modules.assist import service as assist_service
 from max_assist.modules.identity import service
 from max_assist.modules.identity.schemas import (
     DevLoginRequest,
@@ -11,9 +12,11 @@ from max_assist.modules.identity.schemas import (
     MaxLoginRequest,
     MeCounters,
     MeOut,
+    StaffOut,
     TokenOut,
     UserOut,
 )
+from max_assist.modules.trust import service as trust_service
 from max_assist.security import create_access_token
 
 router = APIRouter(tags=["identity"])
@@ -57,15 +60,21 @@ async def dev_reset(user: CurrentUser, session: DbSession) -> dict[str, int]:
 
 @router.get("/me", response_model=MeOut)
 async def me(user: CurrentUser, session: DbSession) -> MeOut:
-    drafts = await applications_service.count_drafts(session, user)
+    counters = MeCounters(
+        drafts=await applications_service.count_drafts(session, user),
+        active_assist_sessions=len(await assist_service.list_active(session, user)),
+        trusted_helpers=await trust_service.count_helpers(session, user),
+        helping_for=await trust_service.count_helping_for(session, user),
+    )
     return MeOut(
         id=user.id,
         first_name=user.first_name,
         last_name=user.last_name,
         display_name=user.display_name,
         photo_url=user.photo_url,
+        staff=StaffOut.of(user.staff),
         recording_consent=user.recording_consent_at is not None,
-        counters=MeCounters(drafts=drafts),
+        counters=counters,
     )
 
 

@@ -3,6 +3,7 @@ from uuid import uuid4
 import pytest
 
 from max_assist.config import settings
+from max_assist.modules.identity.models import User
 from max_assist.modules.notifications import service as notifications
 from tests.test_help_callbacks import busy_helper
 
@@ -46,12 +47,12 @@ async def test_owner_is_told_when_helper_can_help_and_helper_gets_a_new_invite(c
 
 
 async def test_outbox_keeps_only_the_latest_messages():
-    user_id = uuid4()
+    reader = User(id=uuid4(), first_name="Олег")
+
     for number in range(notifications.OUTBOX_SIZE + 5):
-        notifications.send(user_id, f"сообщение {number}", [])
+        await notifications.send(reader, f"сообщение {number}", [])
 
-    kept = notifications.messages_for(user_id)
-
+    kept = notifications.messages_for(reader.id)
     assert len(kept) == notifications.OUTBOX_SIZE
     assert kept[0].text == f"сообщение {notifications.OUTBOX_SIZE + 4}"
     assert notifications.messages_for(uuid4()) == []

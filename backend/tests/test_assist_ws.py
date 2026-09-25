@@ -705,6 +705,33 @@ def test_owner_hears_that_helper_is_busy(api):
     assert event["payload"]["help_callback_id"] == declined["help_callback_id"]
 
 
+def test_owner_follows_the_operator_queue(api):
+    owner, assist = owner_with_assist(api)
+    anna = login(api, "anna")
+
+    with api.websocket_connect(socket_url(assist["id"], owner)) as owner_ws:
+        owner_ws.receive_json()
+        request = api.post(
+            f"/api/v1/assist-sessions/{assist['id']}/operator-requests",
+            json={"topic": "dont_understand"},
+            headers=auth(owner),
+        ).json()
+        queued = next_event(owner_ws, "operator_request.updated")
+        api.post(f"/api/v1/operator/requests/{request['id']}/claim", headers=auth(anna))
+        claimed = next_event(owner_ws, "operator_request.updated")
+
+    assert queued["payload"]["status"] == "queued"
+    assert queued["payload"]["position"] == request["position"]
+    assert claimed["payload"] == {**queued["payload"], "status": "claimed", "position": None}
+
+
+def next_event(ws, name):
+    while True:
+        message = ws.receive_json()
+        if message["event"] == name:
+            return message
+
+
 def test_owner_marks_what_is_unclear(api):
     owner, assist = owner_with_assist(api)
     helper, _ = active_helper(api, owner, assist["id"])

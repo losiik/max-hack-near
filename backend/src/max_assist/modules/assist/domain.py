@@ -148,7 +148,12 @@ def activate(session: AssistSession, participant: AssistParticipant) -> None:
         session.started_at = moment
 
 
-def create_invite(session: AssistSession, actor: User) -> tuple[AssistInvite, str]:
+def create_invite(
+    session: AssistSession,
+    actor: User,
+    kind: str = "link",
+    target_user_id: uuid.UUID | None = None,
+) -> tuple[AssistInvite, str]:
     require_owner(session, actor)
     require_open(session)
 
@@ -156,7 +161,8 @@ def create_invite(session: AssistSession, actor: User) -> tuple[AssistInvite, st
     moment = now()
     invite = AssistInvite(
         id=uuid.uuid4(),
-        kind="link",
+        kind=kind,
+        target_user_id=target_user_id,
         token_hash=hash_token(token),
         created_at=moment,
         expires_at=moment + INVITE_TTL,
@@ -192,6 +198,12 @@ def check_invite(session: AssistSession, invite: AssistInvite) -> None:
         raise Gone(*INVITE_PROBLEMS[status])
 
 
+def require_addressee(invite: AssistInvite, user: User) -> None:
+    # приглашение, отправленное ботом конкретному человеку, не сработает у того, кому его переслали
+    if invite.target_user_id is not None and invite.target_user_id != user.id:
+        raise Forbidden("Это приглашение отправлено другому человеку")
+
+
 def revoke_invite(session: AssistSession, actor: User, invite_id: uuid.UUID) -> None:
     require_owner(session, actor)
     require_open(session)
@@ -218,6 +230,7 @@ def accept_invite(
 
     if user.id == session.owner_id:
         raise Unprocessable("owner_cannot_join", "Нельзя подключиться помощником к своей услуге")
+    require_addressee(invite, user)
 
     participant = participant_of(session, user.id)
     if participant is not None and participant.status in LIVE_STATUSES:
@@ -233,7 +246,7 @@ def accept_invite(
     moment = now()
     participant.role = role
     participant.status = "pending"
-    participant.joined_via = "invite_link"
+    participant.joined_via = "trusted_call" if invite.kind == "trusted_call" else "invite_link"
     participant.invite_id = invite.id
     participant.display_name = user.display_name
     participant.badge_label = BADGES[role]
@@ -257,6 +270,7 @@ def decline_invite(session: AssistSession, invite: AssistInvite, user: User) -> 
 
     if user.id == session.owner_id:
         raise Unprocessable("owner_cannot_join", "Нельзя ответить на своё же приглашение")
+    require_addressee(invite, user)
     participant = participant_of(session, user.id)
     if participant is not None and participant.status in LIVE_STATUSES:
         raise Conflict("already_participant", "Вы уже подключены к этой помощи")
@@ -264,6 +278,37 @@ def decline_invite(session: AssistSession, invite: AssistInvite, user: User) -> 
     invite.declined_at = now()
     invite.declined_by = user.id
     touch(session)
+
+
+def add_operator(session: AssistSession, user: User) -> AssistParticipant:
+    require_open(session)
+    if user.staff is None:
+        raise Forbidden("Брать обращения может только сотрудник МФЦ")
+    if user.id == session.owner_id:
+        raise Unprocessable("owner_cannot_join", "Нельзя подключиться помощником к своей услуге")
+
+    participant = participant_of(session, user.id)
+    if participant is not None and participant.status in LIVE_STATUSES:
+        raise Conflict("already_participant", "Вы уже подключены к этой помощи")
+    require_helper_slot(session)
+    require_recording_consent(user)
+
+    if participant is None:
+        participant = AssistParticipant(id=uuid.uuid4(), user_id=user.id, kind="human")
+        session.participants.append(participant)
+
+    # сотрудник представляет организацию, поэтому имя показываем полностью
+    participant.role = "government_operator"
+    participant.joined_via = "operator_queue"
+    participant.invite_id = None
+    participant.display_name = user.full_name
+    participant.badge_label = f"Сотрудник МФЦ · {user.staff.organization}"
+    participant.badge_verified = user.staff.verified_at is not None
+    participant.requested_at = now()
+    participant.left_at = None
+    activate(session, participant)
+    touch(session)
+    return participant
 
 
 def approve(session: AssistSession, actor: User, participant_id: uuid.UUID) -> AssistParticipant:

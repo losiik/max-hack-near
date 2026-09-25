@@ -18,7 +18,11 @@ from max_assist.modules.assist.router import router as assist_router
 from max_assist.modules.assist.ws import router as assist_ws_router
 from max_assist.modules.catalog.router import router as catalog_router
 from max_assist.modules.identity.router import router as identity_router
+from max_assist.modules.notifications import max_bot
 from max_assist.modules.notifications.router import router as notifications_router
+from max_assist.modules.support_desk import sync as support_sync
+from max_assist.modules.support_desk.router import router as support_router
+from max_assist.modules.trust.router import router as trust_router
 from max_assist.modules.voice import recordings
 from max_assist.modules.voice import sync as voice_sync
 from max_assist.modules.voice.livekit import rooms
@@ -34,12 +38,14 @@ if not app_logger.handlers:
 if form_sync.on_application_changed not in applications_service.listeners:
     applications_service.listeners.append(form_sync.on_application_changed)
 applications_service.active_assist_lookup = form_sync.active_assist_id
-if voice_sync.on_published not in assist_events.listeners:
-    assist_events.listeners.append(voice_sync.on_published)
+for listener in (voice_sync.on_published, support_sync.on_published):
+    if listener not in assist_events.listeners:
+        assist_events.listeners.append(listener)
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    await max_bot.load_identity()
     loops = []
     if settings.cleanup_enabled:
         loops.append(asyncio.create_task(maintenance.run_forever()))
@@ -72,6 +78,8 @@ api.include_router(applications_router)
 api.include_router(assist_router)
 api.include_router(notifications_router)
 api.include_router(voice_router)
+api.include_router(support_router)
+api.include_router(trust_router)
 app.include_router(api)
 app.include_router(assist_ws_router)
 
