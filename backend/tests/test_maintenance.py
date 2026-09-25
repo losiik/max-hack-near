@@ -53,6 +53,8 @@ async def test_abandoned_drafts_are_removed_but_meetings_stay(client):
     async with session_factory() as db:
         meeting = await db.get(AssistSession, UUID(body["id"]))
     assert meeting.service_session_id is None
+    assert (meeting.status, meeting.end_reason) == ("ended", "cancelled")
+    assert removed["orphaned_assist_sessions"] >= 1
 
 
 async def test_submitted_applications_are_kept_for_the_retention_period(client):

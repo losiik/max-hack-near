@@ -33,6 +33,13 @@ class Settings(BaseSettings):
     assist_idle_timeout_minutes: int = 60
     help_callback_ttl_days: int = 7
 
+    livekit_url: str = "ws://localhost:7880"
+    livekit_api_url: str = "http://localhost:7880"
+    livekit_api_key: str = "devkey"
+    livekit_api_secret: str = "dev-livekit-secret-change-me-32-bytes"
+    voice_token_ttl_seconds: int = 120
+    recordings_dir: str = str(Path(__file__).resolve().parents[3] / "recordings")
+
     @property
     def is_dev(self) -> bool:
         return self.app_env == "dev"

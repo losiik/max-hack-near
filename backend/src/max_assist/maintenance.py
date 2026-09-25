@@ -1,13 +1,13 @@
 import logging
 from datetime import timedelta
 
-from sqlalchemy import delete, or_, text
+from sqlalchemy import delete, or_, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from max_assist.config import settings
 from max_assist.db import session_factory
 from max_assist.modules.applications.models import ServiceSession, ServiceSessionInbox
-from max_assist.modules.assist.models import AssistInvite, HelpCallback
+from max_assist.modules.assist.models import AssistInvite, AssistSession, HelpCallback
 from max_assist.tasks import repeat
 from max_assist.utils import now
 
@@ -43,6 +43,14 @@ async def cleanup(db: AsyncSession) -> dict[str, int]:
     for name, statement in statements.items():
         result = await db.execute(statement)
         removed[name] = result.rowcount or 0
+
+    # помощь по удалённому заявлению продолжать нельзя, но сама встреча остаётся в истории
+    orphans = await db.execute(
+        update(AssistSession)
+        .where(AssistSession.status != "ended", AssistSession.service_session_id.is_(None))
+        .values(status="ended", end_reason="cancelled", ended_at=moment, last_activity_at=moment)
+    )
+    removed["orphaned_assist_sessions"] = orphans.rowcount or 0
     await db.commit()
     return removed
 

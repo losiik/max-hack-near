@@ -84,7 +84,12 @@ def live_ids(assist: AssistSession) -> list[UUID]:
     return [item.id for item in assist.participants if item.status in domain.LIVE_STATUSES]
 
 
+listeners: list[Callable[[UUID, list[Delivery]], None]] = []
+
+
 async def publish(assist_id: UUID, deliveries: list[Delivery]) -> None:
+    for listener in listeners:
+        listener(assist_id, deliveries)
     for delivery in deliveries:
         if delivery.message is not None:
             await hub.send(assist_id, delivery.recipients, delivery.message)

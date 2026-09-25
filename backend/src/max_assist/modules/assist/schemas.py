@@ -23,6 +23,7 @@ from max_assist.modules.assist.visibility import ApplicationSnapshot, ProjectedS
 from max_assist.modules.catalog import service as catalog_service
 from max_assist.modules.catalog.schema import Option, ServiceDefinition
 from max_assist.modules.identity.models import User
+from max_assist.modules.voice.models import Recording
 from max_assist.utils import now
 
 
@@ -79,6 +80,11 @@ class InviteRefOut(BaseModel):
     expires_at: datetime
 
 
+class RecordingStateOut(BaseModel):
+    status: str
+    duration_ms: int | None
+
+
 class AssistSessionOut(BaseModel):
     id: UUID
     status: str
@@ -90,6 +96,7 @@ class AssistSessionOut(BaseModel):
     me: MeOut
     participants: list[ParticipantOut]
     pending_invites: list[InviteRefOut] | None
+    recording: RecordingStateOut | None
     ws_url: str
     created_at: datetime
     started_at: datetime | None
@@ -226,6 +233,7 @@ class SummaryOut(BaseModel):
     total_steps: int
     stopped_at_step: StepOut | None
     service_session_status: str
+    recording: RecordingStateOut | None
     actions: SummaryActionsOut
 
 
@@ -282,6 +290,13 @@ class ReplayEventOut(BaseModel):
     payload: dict[str, Any]
 
 
+class ReplayRecordingOut(BaseModel):
+    status: str
+    url: str | None
+    offset_ms: int | None
+    duration_ms: int | None
+
+
 class ReplayOut(BaseModel):
     assist_session_id: UUID
     service: ServiceRefOut
@@ -290,6 +305,7 @@ class ReplayOut(BaseModel):
     duration_ms: int
     steps: list[ReplayStepOut]
     participants: list[ReplayParticipantOut]
+    recording: ReplayRecordingOut | None
     events: list[ReplayEventOut]
 
 
@@ -342,6 +358,16 @@ async def application_of(
     return await applications_service.get_by_id(db, assist.service_session_id), definition
 
 
+async def recording_of(db: AsyncSession, assist_id: UUID) -> Recording | None:
+    return await db.scalar(select(Recording).where(Recording.assist_session_id == assist_id))
+
+
+def recording_state(recording: Recording | None) -> RecordingStateOut | None:
+    if recording is None:
+        return None
+    return RecordingStateOut(status=recording.status, duration_ms=recording.duration_ms)
+
+
 async def users_by_id(db: AsyncSession, ids: set[UUID | None]) -> dict[UUID, User]:
     rows = await db.scalars(select(User).where(User.id.in_([item for item in ids if item])))
     return {row.id: row for row in rows}
@@ -376,6 +402,7 @@ async def session_view(db: AsyncSession, assist: AssistSession, viewer_id: UUID)
         ]
         if viewer_id == assist.owner_id
         else None,
+        recording=recording_state(await recording_of(db, assist.id)),
         ws_url=ws_url(assist.id),
         created_at=assist.created_at,
         started_at=assist.started_at,
@@ -469,6 +496,7 @@ async def summary_view(db: AsyncSession, assist: AssistSession) -> SummaryOut:
         total_steps=definition.total_steps,
         stopped_at_step=current_step_of(service_session, definition),
         service_session_status=service_session.status if service_session else "deleted",
+        recording=recording_state(await recording_of(db, assist.id)),
         actions=SummaryActionsOut(can_continue=can_continue),
     )
 
@@ -547,7 +575,26 @@ async def consultation_view(
     )
 
 
-async def replay_view(db: AsyncSession, assist: AssistSession, journal: list[SessionEvent]) -> ReplayOut:
+def replay_recording(
+    assist: AssistSession, recording: Recording | None, viewer_id: UUID
+) -> ReplayRecordingOut | None:
+    if recording is None:
+        return None
+    audible = recording.status == "ready" and viewer_id == assist.owner_id
+    return ReplayRecordingOut(
+        status=recording.status,
+        url=f"/api/v1/consultations/{assist.id}/recording" if audible else None,
+        offset_ms=milliseconds(recording.started_at - assist.created_at) if recording.started_at else None,
+        duration_ms=recording.duration_ms,
+    )
+
+
+async def replay_view(
+    db: AsyncSession,
+    assist: AssistSession,
+    journal: list[SessionEvent],
+    viewer_id: UUID,
+) -> ReplayOut:
     _, definition = await application_of(db, assist)
     finished = assist.ended_at or now()
     return ReplayOut(
@@ -573,6 +620,7 @@ async def replay_view(db: AsyncSession, assist: AssistSession, journal: list[Ses
             for item in assist.participants
             if item.joined_at is not None
         ],
+        recording=replay_recording(assist, await recording_of(db, assist.id), viewer_id),
         events=[
             ReplayEventOut(
                 seq=event.seq,

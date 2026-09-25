@@ -197,7 +197,7 @@ async def get_consultation(assist_id: UUID, user: CurrentUser, db: DbSession) ->
 @router.get("/consultations/{assist_id}/replay", response_model=ReplayOut)
 async def get_replay(assist_id: UUID, user: CurrentUser, db: DbSession) -> ReplayOut:
     assist = await service.get_consultation(db, user, assist_id)
-    return await replay_view(db, assist, await service.journal_of(db, assist.id))
+    return await replay_view(db, assist, await service.journal_of(db, assist.id), user.id)
 
 
 @router.get("/assist-sessions/{assist_id}/summary", response_model=SummaryOut)

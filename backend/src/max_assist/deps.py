@@ -39,5 +39,19 @@ async def get_current_user(
     return user
 
 
+async def get_listener(
+    session: Annotated[AsyncSession, Depends(get_session)],
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)],
+    token: str | None = None,
+) -> User:
+    # тег <audio> не умеет передавать заголовки, поэтому токен можно положить в адрес
+    if credentials is not None:
+        return await load_user(session, credentials.credentials)
+    if token is not None:
+        return await load_user(session, token)
+    raise Unauthorized()
+
+
 DbSession = Annotated[AsyncSession, Depends(get_session)]
 CurrentUser = Annotated[User, Depends(get_current_user)]
+Listener = Annotated[User, Depends(get_listener)]
