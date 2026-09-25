@@ -44,10 +44,13 @@ async def forget_user(dev_key: str | None = None, max_user_id: int | None = None
         await session.commit()
 
 
-async def login(client, user_key="ludmila"):
+async def login(client, user_key="ludmila", consent=True):
     response = await client.post("/api/v1/auth/dev-login", json={"user_key": user_key})
     assert response.status_code == 200
-    return {"Authorization": f"Bearer {response.json()['access_token']}"}
+    headers = {"Authorization": f"Bearer {response.json()['access_token']}"}
+    if consent:
+        await client.post("/api/v1/me/recording-consent", headers=headers)
+    return headers
 
 
 async def start_session(client, headers):

@@ -29,7 +29,9 @@ def api():
 
 
 def login(api, user_key):
-    return api.post("/api/v1/auth/dev-login", json={"user_key": user_key}).json()["access_token"]
+    token = api.post("/api/v1/auth/dev-login", json={"user_key": user_key}).json()["access_token"]
+    api.post("/api/v1/me/recording-consent", headers=auth(token))
+    return token
 
 
 def auth(token):
@@ -683,39 +685,24 @@ def send(ws, command, payload, request_id="c-1"):
     ws.send_json({"command": command, "request_id": request_id, "payload": payload})
 
 
-def test_messages_and_quick_replies(api):
+def test_owner_hears_that_helper_is_busy(api):
     owner, assist = owner_with_assist(api)
-    helper, _ = active_helper(api, owner, assist["id"])
+    helper = login(api, "sergey")
+    token = api.post(
+        f"/api/v1/assist-sessions/{assist['id']}/invites",
+        json={"kind": "link"},
+        headers=auth(owner),
+    ).json()["token"]
 
     with api.websocket_connect(socket_url(assist["id"], owner)) as owner_ws:
-        owner_ws.receive_json()
-        with api.websocket_connect(socket_url(assist["id"], helper)) as helper_ws:
-            helper_ws.receive_json()
-            owner_ws.receive_json()
+        snapshot = owner_ws.receive_json()
+        declined = api.post(f"/api/v1/assist-invites/{token}/decline", headers=auth(helper)).json()
+        event = owner_ws.receive_json()
 
-            send(
-                helper_ws,
-                "message.send",
-                {"text": "Выберите «Пенсионер»", "element_id": "benefit_category"},
-                "m-1",
-            )
-            text_message = owner_ws.receive_json()
-            helper_ack = helper_ws.receive_json()
-
-            send(owner_ws, "message.send", {"quick_reply": "understood"}, "m-2")
-            quick = helper_ws.receive_json()
-            owner_ws.receive_json()
-
-            send(helper_ws, "message.send", {"quick_reply": "understood"}, "m-3")
-            helper_quick = helper_ws.receive_json()
-
-    assert text_message["event"] == "message.sent"
-    assert text_message["payload"]["text"] == "Выберите «Пенсионер»"
-    assert text_message["payload"]["element_id"] == "benefit_category"
-    assert text_message["actor"]["display_name"] == "Сергей К."
-    assert helper_ack["payload"]["result"]["message_id"] == text_message["payload"]["message_id"]
-    assert (quick["payload"]["quick_reply"], quick["payload"]["text"]) == ("understood", None)
-    assert helper_quick["payload"]["code"] == "bad_payload"
+    assert event["event"] == "invite.declined"
+    assert event["seq"] == snapshot["payload"]["last_seq"] + 1
+    assert event["payload"]["helper"] == {"display_name": "Сергей К."}
+    assert event["payload"]["help_callback_id"] == declined["help_callback_id"]
 
 
 def test_owner_marks_what_is_unclear(api):

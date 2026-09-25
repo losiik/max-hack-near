@@ -42,6 +42,7 @@ class MeOut(BaseModel):
     display_name: str
     photo_url: str | None
     staff: None = None
+    recording_consent: bool
     counters: MeCounters
 
 

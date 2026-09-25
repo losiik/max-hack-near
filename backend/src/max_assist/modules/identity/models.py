@@ -21,6 +21,7 @@ class User(Base):
     dev_key: Mapped[str | None] = mapped_column(Text, unique=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
     last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    recording_consent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     @property
     def display_name(self) -> str:

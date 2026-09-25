@@ -149,6 +149,26 @@ async def join_requested(
     return [Delivery([owner.id], message)]
 
 
+def invite_declined(
+    assist: AssistSession,
+    invite_id: UUID,
+    helper: User,
+    callback_id: UUID,
+) -> list[Delivery]:
+    owner = domain.participant_of(assist, assist.owner_id)
+    message = envelope(
+        assist.id,
+        "invite.declined",
+        {
+            "invite_id": str(invite_id),
+            "helper": {"display_name": helper.display_name},
+            "help_callback_id": str(callback_id),
+        },
+        next_seq(assist),
+    )
+    return [Delivery([owner.id], message)]
+
+
 async def joined(
     db: AsyncSession,
     assist: AssistSession,
@@ -392,28 +412,6 @@ def pointer(
         assist_id,
         "annotation.pointer",
         {"element_id": element_id, "rel_x": rel_x, "rel_y": rel_y, "visible": visible},
-        actor=actor_of_viewer(viewer),
-    )
-    return [Delivery(hub.active_participants(assist_id, exclude=viewer.participant_id), message)]
-
-
-def message_sent(
-    assist_id: UUID,
-    viewer: Viewer,
-    message_id: UUID,
-    text: str | None,
-    element_id: str | None,
-    quick_reply: str | None,
-) -> list[Delivery]:
-    message = envelope(
-        assist_id,
-        "message.sent",
-        {
-            "message_id": str(message_id),
-            "text": text,
-            "element_id": element_id,
-            "quick_reply": quick_reply,
-        },
         actor=actor_of_viewer(viewer),
     )
     return [Delivery(hub.active_participants(assist_id, exclude=viewer.participant_id), message)]

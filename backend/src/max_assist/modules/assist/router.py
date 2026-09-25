@@ -1,7 +1,7 @@
 from typing import Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Response
+from fastapi import APIRouter, Query, Response
 
 from max_assist.deps import CurrentUser, DbSession
 from max_assist.modules.assist import service
@@ -9,19 +9,31 @@ from max_assist.modules.assist.schemas import (
     AcceptOut,
     ActiveAssistOut,
     AssistSessionOut,
+    CallBackOut,
+    ConsultationItemOut,
+    ConsultationOut,
     CreateAssistRequest,
+    DeclineOut,
+    HelpCallbackOut,
     InviteOut,
     InvitePreviewOut,
     InviteRequest,
+    NameOut,
+    ReplayOut,
     SnapshotOut,
     SummaryOut,
     active_view,
+    callback_view,
+    consultation_item,
+    consultation_view,
     invite_view,
     preview_view,
+    replay_view,
     session_view,
     snapshot_view,
     summary_view,
 )
+from max_assist.modules.identity.models import User
 
 router = APIRouter(tags=["assist"])
 
@@ -83,6 +95,44 @@ async def accept_invite(token: str, user: CurrentUser, db: DbSession) -> AcceptO
     return AcceptOut(assist_session_id=assist.id, participant_id=participant.id, status=participant.status)
 
 
+@router.post("/assist-invites/{token}/decline", response_model=DeclineOut)
+async def decline_invite(token: str, user: CurrentUser, db: DbSession) -> DeclineOut:
+    assist, callback = await service.decline_invite(db, user, token)
+    owner = await db.get(User, assist.owner_id)
+    return DeclineOut(help_callback_id=callback.id, owner=NameOut(display_name=owner.display_name))
+
+
+@router.get("/help-callbacks", response_model=list[HelpCallbackOut])
+async def list_callbacks(
+    user: CurrentUser,
+    db: DbSession,
+    role: Literal["owner", "helper"] = Query("owner", alias="as"),
+) -> list[HelpCallbackOut]:
+    rows = await service.list_callbacks(db, user, role == "owner")
+    return [await callback_view(db, row) for row in rows]
+
+
+@router.post("/help-callbacks/{callback_id}/ready", response_model=HelpCallbackOut)
+async def helper_is_ready(callback_id: UUID, user: CurrentUser, db: DbSession) -> HelpCallbackOut:
+    callback = await service.helper_is_ready(db, user, callback_id)
+    return await callback_view(db, callback)
+
+
+@router.post("/help-callbacks/{callback_id}/call", response_model=CallBackOut, status_code=201)
+async def call_back(callback_id: UUID, user: CurrentUser, db: DbSession) -> CallBackOut:
+    assist, invite, token = await service.call_back(db, user, callback_id)
+    return CallBackOut(
+        assist_session=await session_view(db, assist, user.id),
+        invite=await invite_view(db, assist, invite, token, user),
+    )
+
+
+@router.delete("/help-callbacks/{callback_id}", status_code=204)
+async def dismiss_callback(callback_id: UUID, user: CurrentUser, db: DbSession) -> Response:
+    await service.dismiss_callback(db, user, callback_id)
+    return Response(status_code=204)
+
+
 @router.post(
     "/assist-sessions/{assist_id}/participants/{participant_id}/approve",
     response_model=AssistSessionOut,
@@ -125,6 +175,29 @@ async def leave(assist_id: UUID, user: CurrentUser, db: DbSession) -> Response:
 async def end(assist_id: UUID, user: CurrentUser, db: DbSession) -> SummaryOut:
     assist = await service.end(db, user, assist_id)
     return await summary_view(db, assist)
+
+
+@router.get("/consultations", response_model=list[ConsultationItemOut])
+async def list_consultations(
+    user: CurrentUser,
+    db: DbSession,
+    role: Literal["owner", "helper"] = Query("owner", alias="as"),
+    limit: int = Query(20, ge=1, le=100),
+) -> list[ConsultationItemOut]:
+    rows = await service.list_consultations(db, user, role == "owner", limit)
+    return [await consultation_item(db, row, user.id, await service.journal_of(db, row.id)) for row in rows]
+
+
+@router.get("/consultations/{assist_id}", response_model=ConsultationOut)
+async def get_consultation(assist_id: UUID, user: CurrentUser, db: DbSession) -> ConsultationOut:
+    assist = await service.get_consultation(db, user, assist_id)
+    return await consultation_view(db, assist, user.id, await service.journal_of(db, assist.id))
+
+
+@router.get("/consultations/{assist_id}/replay", response_model=ReplayOut)
+async def get_replay(assist_id: UUID, user: CurrentUser, db: DbSession) -> ReplayOut:
+    assist = await service.get_consultation(db, user, assist_id)
+    return await replay_view(db, assist, await service.journal_of(db, assist.id))
 
 
 @router.get("/assist-sessions/{assist_id}/summary", response_model=SummaryOut)

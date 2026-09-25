@@ -1,13 +1,13 @@
 import logging
 from datetime import timedelta
 
-from sqlalchemy import delete, text
+from sqlalchemy import delete, or_, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from max_assist.config import settings
 from max_assist.db import session_factory
 from max_assist.modules.applications.models import ServiceSession, ServiceSessionInbox
-from max_assist.modules.assist.models import AssistInvite, AssistSession
+from max_assist.modules.assist.models import AssistInvite, HelpCallback
 from max_assist.tasks import repeat
 from max_assist.utils import now
 
@@ -23,9 +23,11 @@ async def cleanup(db: AsyncSession) -> dict[str, int]:
         "invites": delete(AssistInvite).where(
             AssistInvite.created_at < moment - timedelta(days=settings.retention_invites_days)
         ),
-        "assist_sessions": delete(AssistSession).where(
-            AssistSession.status == "ended",
-            AssistSession.ended_at < moment - timedelta(days=settings.retention_assist_days),
+        "help_callbacks": delete(HelpCallback).where(
+            or_(
+                HelpCallback.closed_at < moment - timedelta(days=settings.retention_callbacks_days),
+                HelpCallback.expires_at < moment - timedelta(days=settings.retention_callbacks_days),
+            )
         ),
         "drafts": delete(ServiceSession).where(
             ServiceSession.status.in_(["draft", "cancelled"]),

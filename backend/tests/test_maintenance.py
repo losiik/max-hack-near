@@ -9,11 +9,11 @@ from max_assist import maintenance, tasks
 from max_assist.config import settings
 from max_assist.db import session_factory
 from max_assist.modules.applications.models import ServiceSession, ServiceSessionInbox
-from max_assist.modules.assist.models import AssistInvite, AssistParticipant, AssistSession
+from max_assist.modules.assist.models import AssistInvite, AssistParticipant, AssistSession, HelpCallback
 from max_assist.utils import now
 from tests.helpers import login, reach_confirmation, start_session
 from tests.test_application_flow_details import submit
-from tests.test_assist_api import joined_helper, owner_with_assist
+from tests.test_assist_api import invite, joined_helper, owner_with_assist
 
 
 async def age(model, row_id, **columns):
@@ -27,12 +27,19 @@ async def exists(model, row_id) -> bool:
         return await db.get(model, UUID(str(row_id))) is not None
 
 
+async def say_busy(client, owner_headers, assist_id, user_key):
+    helper_headers = await login(client, user_key)
+    token = (await invite(client, owner_headers, assist_id))["token"]
+    declined = await client.post(f"/api/v1/assist-invites/{token}/decline", headers=helper_headers)
+    return declined.json()["help_callback_id"]
+
+
 async def run_cleanup() -> dict[str, int]:
     async with session_factory() as db:
         return await maintenance.cleanup(db)
 
 
-async def test_abandoned_drafts_are_removed_with_their_assist_sessions(client):
+async def test_abandoned_drafts_are_removed_but_meetings_stay(client):
     _, old_application, body = await owner_with_assist(client)
     anna = await login(client, "anna")
     fresh_application = await start_session(client, anna)
@@ -42,8 +49,10 @@ async def test_abandoned_drafts_are_removed_with_their_assist_sessions(client):
 
     assert removed["drafts"] >= 1
     assert not await exists(ServiceSession, old_application)
-    assert not await exists(AssistSession, body["id"])
     assert await exists(ServiceSession, fresh_application)
+    async with session_factory() as db:
+        meeting = await db.get(AssistSession, UUID(body["id"]))
+    assert meeting.service_session_id is None
 
 
 async def test_submitted_applications_are_kept_for_the_retention_period(client):
@@ -79,7 +88,7 @@ async def test_sms_codes_are_removed_after_a_day(client):
     assert await exists(ServiceSession, application)
 
 
-async def test_old_invites_and_assist_history_are_removed(client):
+async def test_old_invites_are_removed_and_meetings_are_kept(client):
     headers, application, body = await owner_with_assist(client)
     _, participant_id = await joined_helper(client, headers, body["id"])
 
@@ -97,11 +106,26 @@ async def test_old_invites_and_assist_history_are_removed(client):
     assert participant.invite_id is None
 
     await client.post(f"/api/v1/assist-sessions/{body['id']}/end", headers=headers)
-    await age(AssistSession, body["id"], ended_at=now() - timedelta(days=91))
+    await age(AssistSession, body["id"], ended_at=now() - timedelta(days=400))
     await run_cleanup()
 
-    assert not await exists(AssistSession, body["id"])
+    assert await exists(AssistSession, body["id"])
     assert await exists(ServiceSession, application)
+
+
+async def test_old_and_closed_promises_to_help_are_removed(client):
+    headers, _, body = await owner_with_assist(client)
+    open_id, closed_id, forgotten_id = [
+        await say_busy(client, headers, body["id"], user_key) for user_key in ("sergey", "oleg", "anna")
+    ]
+    await client.delete(f"/api/v1/help-callbacks/{closed_id}", headers=headers)
+    await age(HelpCallback, closed_id, closed_at=now() - timedelta(days=8))
+    await age(HelpCallback, forgotten_id, expires_at=now() - timedelta(days=8))
+
+    removed = await run_cleanup()
+
+    assert removed["help_callbacks"] == 2
+    assert await exists(HelpCallback, open_id)
 
 
 async def test_live_data_is_not_touched(client):

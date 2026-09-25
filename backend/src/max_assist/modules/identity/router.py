@@ -64,5 +64,11 @@ async def me(user: CurrentUser, session: DbSession) -> MeOut:
         last_name=user.last_name,
         display_name=user.display_name,
         photo_url=user.photo_url,
+        recording_consent=user.recording_consent_at is not None,
         counters=MeCounters(drafts=drafts),
     )
+
+
+@router.post("/me/recording-consent", status_code=204)
+async def agree_to_recording(user: CurrentUser, session: DbSession) -> None:
+    await service.agree_to_recording(session, user)

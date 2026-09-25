@@ -18,7 +18,7 @@ BADGES = {
 }
 
 VIEW = {"view_step", "view_structure", "view_public_values", "view_validation_errors"}
-HELPER = {"annotate", "send_message", "leave_session"}
+HELPER = {"annotate", "speak", "leave_session"}
 
 ROLE_CAPABILITIES = {
     "owner": frozenset(
@@ -27,7 +27,8 @@ ROLE_CAPABILITIES = {
             "view_sensitive_values",
             "view_validation_details",
             "flag_confusion",
-            "send_message",
+            "speak",
+            "listen_recording",
             "edit_fields",
             "navigate",
             "submit",
@@ -49,6 +50,7 @@ INVITE_PROBLEMS = {
     "session_ended": ("session_ended", "Помощь уже завершена"),
     "revoked": ("invite_revoked", "Приглашение отозвано"),
     "used": ("invite_used", "Приглашение уже использовано"),
+    "declined": ("invite_declined", "На это приглашение уже ответили «Сейчас занят»"),
     "expired": ("invite_expired", "Срок действия приглашения истёк"),
 }
 
@@ -61,12 +63,25 @@ def hash_token(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
 
 
-def start(owner: User, service_session_id: uuid.UUID) -> AssistSession:
+def require_recording_consent(user: User) -> None:
+    if user.recording_consent_at is None:
+        raise Conflict("recording_consent_required", "Нужно согласие на запись разговора")
+
+
+def start(
+    owner: User,
+    service_session_id: uuid.UUID,
+    service_code: str,
+    service_version: int,
+) -> AssistSession:
+    require_recording_consent(owner)
     moment = now()
     session = AssistSession(
         id=uuid.uuid4(),
         service_session_id=service_session_id,
         owner_id=owner.id,
+        service_code=service_code,
+        service_version=service_version,
         status="waiting",
         last_seq=0,
         created_at=moment,
@@ -158,6 +173,8 @@ def invite_status(session: AssistSession, invite: AssistInvite) -> str:
         return "revoked"
     if invite.used_at is not None:
         return "used"
+    if invite.declined_at is not None:
+        return "declined"
     if invite.expires_at <= now():
         return "expired"
     return "valid"
@@ -206,6 +223,7 @@ def accept_invite(
     if participant is not None and participant.status in LIVE_STATUSES:
         raise Conflict("already_participant", "Вы уже подключены к этой помощи")
     require_helper_slot(session)
+    require_recording_consent(user)
 
     if participant is None:
         participant = AssistParticipant(id=uuid.uuid4(), user_id=user.id, kind="human")
@@ -231,6 +249,21 @@ def accept_invite(
         activate(session, participant)
     touch(session)
     return participant
+
+
+def decline_invite(session: AssistSession, invite: AssistInvite, user: User) -> None:
+    require_open(session)
+    check_invite(session, invite)
+
+    if user.id == session.owner_id:
+        raise Unprocessable("owner_cannot_join", "Нельзя ответить на своё же приглашение")
+    participant = participant_of(session, user.id)
+    if participant is not None and participant.status in LIVE_STATUSES:
+        raise Conflict("already_participant", "Вы уже подключены к этой помощи")
+
+    invite.declined_at = now()
+    invite.declined_by = user.id
+    touch(session)
 
 
 def approve(session: AssistSession, actor: User, participant_id: uuid.UUID) -> AssistParticipant:

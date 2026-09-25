@@ -17,6 +17,7 @@ from max_assist.modules.assist.router import router as assist_router
 from max_assist.modules.assist.ws import router as assist_ws_router
 from max_assist.modules.catalog.router import router as catalog_router
 from max_assist.modules.identity.router import router as identity_router
+from max_assist.modules.notifications.router import router as notifications_router
 
 app_logger = logging.getLogger("max_assist")
 if not app_logger.handlers:
@@ -62,6 +63,7 @@ api.include_router(identity_router)
 api.include_router(catalog_router)
 api.include_router(applications_router)
 api.include_router(assist_router)
+api.include_router(notifications_router)
 app.include_router(api)
 app.include_router(assist_ws_router)
 

@@ -1,10 +1,13 @@
 from datetime import timedelta
 from uuid import UUID, uuid4
 
+from sqlalchemy import select
+
 from max_assist.db import session_factory
 from max_assist.modules.assist.models import AssistInvite
+from max_assist.modules.identity.models import User
 from max_assist.utils import now
-from tests.helpers import STEP_VALUES, fill, go_next, login, start_session
+from tests.helpers import STEP_VALUES, fill, forget_user, go_next, login, start_session
 
 
 async def owner_with_assist(client):
@@ -339,3 +342,45 @@ async def test_active_scope_lists_only_live_sessions(client):
     assert helper_item["owner_display_name"] == "Людмила П."
     assert helper_item["current_step"] == {"index": 1, "title": "Категория заявителя"}
     assert body["id"] not in [item["id"] for item in after.json()]
+
+
+async def test_help_needs_consent_to_record_and_it_is_given_once(client):
+    await forget_user("oleg")
+    headers = await login(client, "oleg", consent=False)
+    service_session_id = await start_session(client, headers)
+    body = {"service_session_id": service_session_id}
+
+    refused = await client.post("/api/v1/assist-sessions", json=body, headers=headers)
+    before = (await client.get("/api/v1/me", headers=headers)).json()
+    first = await client.post("/api/v1/me/recording-consent", headers=headers)
+    agreed_at = await consent_moment("oleg")
+    second = await client.post("/api/v1/me/recording-consent", headers=headers)
+    after = (await client.get("/api/v1/me", headers=headers)).json()
+    started = await client.post("/api/v1/assist-sessions", json=body, headers=headers)
+
+    assert refused.status_code == 409
+    assert refused.json()["error"]["code"] == "recording_consent_required"
+    assert (before["recording_consent"], after["recording_consent"]) == (False, True)
+    assert (first.status_code, second.status_code) == (204, 204)
+    assert await consent_moment("oleg") == agreed_at
+    assert started.status_code == 201
+
+
+async def test_helper_without_consent_cannot_join_until_agrees(client):
+    headers, _, body = await owner_with_assist(client)
+    await forget_user("oleg")
+    helper_headers = await login(client, "oleg", consent=False)
+    token = (await invite(client, headers, body["id"]))["token"]
+
+    refused = await client.post(f"/api/v1/assist-invites/{token}/accept", headers=helper_headers)
+    await client.post("/api/v1/me/recording-consent", headers=helper_headers)
+    accepted = await client.post(f"/api/v1/assist-invites/{token}/accept", headers=helper_headers)
+
+    assert refused.status_code == 409
+    assert refused.json()["error"]["code"] == "recording_consent_required"
+    assert accepted.status_code == 200
+
+
+async def consent_moment(dev_key):
+    async with session_factory() as db:
+        return await db.scalar(select(User.recording_consent_at).where(User.dev_key == dev_key))

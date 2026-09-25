@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from max_assist.db import session_factory
 from max_assist.modules.applications import service as applications_service
 from max_assist.modules.applications.models import ServiceSession
-from max_assist.modules.assist import domain, events
+from max_assist.modules.assist import domain, events, journal
 from max_assist.modules.assist.models import AssistSession
 
 
@@ -51,6 +51,7 @@ async def on_application_changed(event: str, row: ServiceSession, details: dict[
             deliveries = events.ended(assist, recipients)
 
         domain.touch(assist)
+        journal.record(db, assist.id, deliveries)
         await db.commit()
 
     await events.publish(assist.id, deliveries)

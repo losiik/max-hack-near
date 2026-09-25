@@ -1,34 +1,29 @@
 import json
 from datetime import timedelta
 from typing import Any
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from max_assist.db import session_factory
 from max_assist.modules.applications import service as applications_service
 from max_assist.modules.applications.domain import ApplicationForm
-from max_assist.modules.assist import domain, events
+from max_assist.modules.assist import domain, events, journal
 from max_assist.modules.assist.annotations import KINDS, LABEL_LIMIT, board
 from max_assist.modules.assist.limits import RateLimiter
 from max_assist.modules.assist.models import AssistSession
 from max_assist.modules.assist.realtime import Connection
 
-MESSAGE_LIMIT = 500
-QUICK_REPLIES = {"understood", "not_found", "repeat"}
-
 DENIED = {
     "annotate": "Показывать элементы может только помощник",
-    "send_message": "Отправлять сообщения нельзя",
     "flag_confusion": "Отмечать непонятное может только владелец",
 }
 
 annotation_limit = RateLimiter(per_second=3, burst=5)
 pointer_limit = RateLimiter(per_second=20, burst=20)
-message_limit = RateLimiter(per_second=1, burst=3)
 confusion_limit = RateLimiter(per_second=0.2, burst=1)
 
 
 def prune_limits() -> None:
-    for limiter in (annotation_limit, pointer_limit, message_limit, confusion_limit):
+    for limiter in (annotation_limit, pointer_limit, confusion_limit):
         limiter.prune(timedelta(minutes=10))
 
 
@@ -88,7 +83,9 @@ async def annotate(
         return events.error(assist_id, request_id, "bad_payload", f"Подпись длиннее {LABEL_LIMIT} символов")
 
     annotation = board.add(assist_id, connection.viewer.participant_id, kind, element_id, label)
-    await events.publish(assist_id, events.annotation_created(assist_id, connection.viewer, annotation))
+    deliveries = events.annotation_created(assist_id, connection.viewer, annotation)
+    await events.publish(assist_id, deliveries)
+    journal.record_later(assist_id, deliveries)
     return events.ack(assist_id, request_id, {"annotation_id": str(annotation.id)})
 
 
@@ -113,10 +110,9 @@ async def clear(
     removed = board.clear(assist_id, connection.viewer.participant_id, annotation_id)
     removed_ids = [item.id for item in removed]
     if removed_ids:
-        await events.publish(
-            assist_id,
-            events.annotation_cleared(assist_id, connection.viewer, removed_ids),
-        )
+        deliveries = events.annotation_cleared(assist_id, connection.viewer, removed_ids)
+        await events.publish(assist_id, deliveries)
+        journal.record_later(assist_id, deliveries)
     return events.ack(assist_id, request_id, {"annotation_ids": [str(item) for item in removed_ids]})
 
 
@@ -150,44 +146,6 @@ async def pointer(
     return None
 
 
-async def send_message(
-    assist_id: UUID,
-    connection: Connection,
-    request_id: Any,
-    payload: dict[str, Any],
-) -> dict[str, Any] | None:
-    denied = refusal(assist_id, connection, request_id, "send_message")
-    if denied is not None:
-        return denied
-    if not message_limit.allow((connection.viewer.participant_id, "message")):
-        return events.error(assist_id, request_id, "rate_limited", "Слишком часто")
-
-    raw_text = payload.get("text")
-    if raw_text is not None and not isinstance(raw_text, str):
-        return events.error(assist_id, request_id, "bad_payload", "Текст должен быть строкой")
-    text = (raw_text or "").strip() or None
-
-    quick_reply = payload.get("quick_reply")
-    if quick_reply is not None and (connection.viewer.role != "owner" or quick_reply not in QUICK_REPLIES):
-        return events.error(assist_id, request_id, "bad_payload", "Быстрые ответы есть только у владельца")
-    if (text is None) == (quick_reply is None):
-        return events.error(assist_id, request_id, "bad_payload", "Нужен либо текст, либо быстрый ответ")
-    if text is not None and len(text) > MESSAGE_LIMIT:
-        too_long = f"Сообщение длиннее {MESSAGE_LIMIT} символов"
-        return events.error(assist_id, request_id, "bad_payload", too_long)
-
-    element_id = payload.get("element_id")
-    if element_id is not None and element_id not in await elements_of_current_step(assist_id):
-        return events.error(assist_id, request_id, "unknown_element", "Этого поля нет на текущем шаге")
-
-    message_id = uuid4()
-    await events.publish(
-        assist_id,
-        events.message_sent(assist_id, connection.viewer, message_id, text, element_id, quick_reply),
-    )
-    return events.ack(assist_id, request_id, {"message_id": str(message_id)})
-
-
 async def flag_confusion(
     assist_id: UUID,
     connection: Connection,
@@ -204,7 +162,9 @@ async def flag_confusion(
     if element_id not in await elements_of_current_step(assist_id):
         return events.error(assist_id, request_id, "unknown_element", "Этого поля нет на текущем шаге")
 
-    await events.publish(assist_id, events.confusion_flagged(assist_id, connection.viewer, element_id))
+    deliveries = events.confusion_flagged(assist_id, connection.viewer, element_id)
+    await events.publish(assist_id, deliveries)
+    journal.record_later(assist_id, deliveries)
     return events.ack(assist_id, request_id, {})
 
 
@@ -229,8 +189,6 @@ async def handle(assist_id: UUID, connection: Connection, raw: str) -> dict[str,
         return await clear(assist_id, connection, request_id, payload)
     if name == "annotation.pointer":
         return await pointer(assist_id, connection, request_id, payload)
-    if name == "message.send":
-        return await send_message(assist_id, connection, request_id, payload)
     if name == "owner.flag_confusion":
         return await flag_confusion(assist_id, connection, request_id, payload)
 

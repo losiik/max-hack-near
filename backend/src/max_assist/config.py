@@ -22,8 +22,8 @@ class Settings(BaseSettings):
     cleanup_interval_minutes: int = 60
     retention_inbox_hours: int = 24
     retention_invites_days: int = 7
+    retention_callbacks_days: int = 7
     retention_drafts_days: int = 30
-    retention_assist_days: int = 90
     retention_submitted_days: int = 90
     db_size_warning_mb: int = 1024
 
@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     expiry_interval_seconds: int = 60
     assist_waiting_timeout_minutes: int = 30
     assist_idle_timeout_minutes: int = 60
+    help_callback_ttl_days: int = 7
 
     @property
     def is_dev(self) -> bool:

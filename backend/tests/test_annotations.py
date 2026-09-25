@@ -101,8 +101,8 @@ def test_board_forgets_sessions_without_annotations():
 
 
 def test_annotation_of_a_gone_participant_is_skipped():
-    owner = User(id=uuid4(), first_name="Людмила", last_name="Петрова")
-    assist = domain.start(owner, uuid4())
+    owner = User(id=uuid4(), first_name="Людмила", last_name="Петрова", recording_consent_at=now())
+    assist = domain.start(owner, uuid4(), "housing_compensation", 1)
     board = AnnotationBoard()
     session = uuid4()
     mine = board.add(session, assist.participants[0].id, "frame", "snils", None)

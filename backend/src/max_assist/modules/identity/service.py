@@ -82,3 +82,9 @@ async def dev_login(session: AsyncSession, user_key: str) -> User:
     user.last_seen_at = now()
     await session.commit()
     return user
+
+
+async def agree_to_recording(session: AsyncSession, user: User) -> None:
+    if user.recording_consent_at is None:
+        user.recording_consent_at = now()
+        await session.commit()

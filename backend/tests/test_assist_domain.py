@@ -9,8 +9,13 @@ from max_assist.modules.identity.models import User
 from max_assist.utils import now
 
 
-def person(first_name: str, last_name: str = "Тестов") -> User:
-    return User(id=uuid4(), first_name=first_name, last_name=last_name)
+def person(first_name: str, last_name: str = "Тестов", agreed: bool = True) -> User:
+    return User(
+        id=uuid4(),
+        first_name=first_name,
+        last_name=last_name,
+        recording_consent_at=now() if agreed else None,
+    )
 
 
 @pytest.fixture
@@ -20,7 +25,7 @@ def owner():
 
 @pytest.fixture
 def session(owner):
-    return domain.start(owner, uuid4())
+    return domain.start(owner, uuid4(), "housing_compensation", 1)
 
 
 def joined(session, owner, user, is_trusted=False):
@@ -33,6 +38,24 @@ def test_new_session_waits_with_owner_inside(session, owner):
 
     assert session.status == "waiting"
     assert (participant.user_id, participant.role, participant.status) == (owner.id, "owner", "active")
+
+
+def test_help_is_not_called_without_consent_to_record():
+    with pytest.raises(Conflict) as error:
+        domain.start(person("Людмила", agreed=False), uuid4(), "housing_compensation", 1)
+
+    assert error.value.code == "recording_consent_required"
+
+
+def test_helper_without_consent_keeps_the_invite_unused(session, owner):
+    invite, _ = domain.create_invite(session, owner)
+
+    with pytest.raises(Conflict) as error:
+        domain.accept_invite(session, invite, person("Сергей", agreed=False))
+
+    assert error.value.code == "recording_consent_required"
+    assert invite.used_at is None
+    assert len(session.participants) == 1
 
 
 def test_invite_keeps_only_token_hash(session, owner):
@@ -107,8 +130,8 @@ def test_revoked_invite_is_rejected(session, owner):
 
 
 def test_invite_of_another_session_is_rejected(owner):
-    first = domain.start(owner, uuid4())
-    second = domain.start(owner, uuid4())
+    first = domain.start(owner, uuid4(), "housing_compensation", 1)
+    second = domain.start(owner, uuid4(), "housing_compensation", 1)
     invite, _ = domain.create_invite(first, owner)
 
     with pytest.raises(NotFound):

@@ -37,8 +37,10 @@ def test_all_tables_are_registered_for_migrations():
         "service_sessions",
         "service_session_inbox",
         "assist_sessions",
+        "help_callbacks",
         "assist_participants",
         "assist_invites",
+        "session_events",
     }
 
 

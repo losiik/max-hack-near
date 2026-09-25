@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Text
+from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Integer, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -15,10 +15,14 @@ class AssistSession(Base):
     __tablename__ = "assist_sessions"
 
     id: Mapped[uuid.UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    service_session_id: Mapped[uuid.UUID] = mapped_column(
-        PgUUID(as_uuid=True), ForeignKey("service_sessions.id", ondelete="CASCADE")
+    service_session_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("service_sessions.id", ondelete="SET NULL")
     )
-    owner_id: Mapped[uuid.UUID] = mapped_column(PgUUID(as_uuid=True), ForeignKey("users.id"))
+    owner_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE")
+    )
+    service_code: Mapped[str] = mapped_column(Text)
+    service_version: Mapped[int] = mapped_column(Integer)
     status: Mapped[str] = mapped_column(Text, default="waiting")
     end_reason: Mapped[str | None] = mapped_column(Text)
     last_seq: Mapped[int] = mapped_column(Integer, default=0)
@@ -61,8 +65,32 @@ class AssistInvite(Base):
         PgUUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
     )
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    declined_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    declined_by: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
+    )
 
     assist_session: Mapped[AssistSession] = relationship(back_populates="invites")
+
+
+class HelpCallback(Base):
+    __tablename__ = "help_callbacks"
+
+    id: Mapped[uuid.UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    owner_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE")
+    )
+    helper_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE")
+    )
+    service_session_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("service_sessions.id", ondelete="CASCADE")
+    )
+    status: Mapped[str] = mapped_column(Text, default="busy")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    ready_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class AssistParticipant(Base):
@@ -90,3 +118,17 @@ class AssistParticipant(Base):
     left_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     assist_session: Mapped[AssistSession] = relationship(back_populates="participants")
+
+
+class SessionEvent(Base):
+    __tablename__ = "session_events"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    assist_session_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("assist_sessions.id", ondelete="CASCADE")
+    )
+    seq: Mapped[int | None] = mapped_column(Integer)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    actor_participant_id: Mapped[uuid.UUID | None] = mapped_column(PgUUID(as_uuid=True))
+    event_type: Mapped[str] = mapped_column(Text)
+    payload: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)

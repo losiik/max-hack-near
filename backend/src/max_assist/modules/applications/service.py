@@ -84,6 +84,8 @@ async def count_drafts(session: AsyncSession, user: User) -> int:
 
 
 async def reset_user_data(session: AsyncSession, user: User) -> int:
+    for row in await list_sessions(session, user, None):
+        await notify("cancelled", row)
     result = await session.execute(delete(ServiceSession).where(ServiceSession.owner_id == user.id))
     await session.commit()
     return result.rowcount or 0

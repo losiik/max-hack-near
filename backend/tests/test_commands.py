@@ -22,6 +22,11 @@ async def call(assist_id, sender, command, payload=None, request_id="c-1"):
     return await commands.handle(assist_id, sender, json.dumps(body))
 
 
+@pytest.fixture(autouse=True)
+def journal_off(monkeypatch):
+    monkeypatch.setattr(commands.journal, "record_later", lambda assist_id, deliveries: None)
+
+
 @pytest.fixture
 def session_on_first_step():
     assist_id = uuid4()
@@ -105,41 +110,11 @@ async def test_payload_must_be_an_object(session_on_first_step):
     assert reply["payload"]["code"] == "bad_payload"
 
 
-async def test_message_needs_either_text_or_quick_reply(session_on_first_step):
-    session = session_on_first_step
+async def test_there_is_no_chat_anymore(session_on_first_step):
+    for sender in (connection(), connection(role="owner")):
+        reply = await call(session_on_first_step, sender, "message.send", {"text": "Здравствуйте"})
 
-    empty = await call(session, connection(), "message.send", {})
-    both = await call(
-        session,
-        connection(role="owner"),
-        "message.send",
-        {"text": "Да", "quick_reply": "understood"},
-    )
-    not_text = await call(session, connection(), "message.send", {"text": 42})
-    too_long = await call(session, connection(), "message.send", {"text": "х" * 501})
-    unknown = await call(session, connection(), "message.send", {"text": "Сюда", "element_id": "snils"})
-    strange_reply = await call(session, connection(role="owner"), "message.send", {"quick_reply": "maybe"})
-
-    assert [
-        reply["payload"]["code"] for reply in (empty, both, not_text, too_long, unknown, strange_reply)
-    ] == ["bad_payload", "bad_payload", "bad_payload", "bad_payload", "unknown_element", "bad_payload"]
-
-
-async def test_waiting_person_cannot_send_messages(session_on_first_step):
-    waiting = connection(status="pending")
-
-    reply = await call(session_on_first_step, waiting, "message.send", {"text": "Здравствуйте"})
-
-    assert reply["payload"]["code"] == "forbidden"
-
-
-async def test_messages_are_rate_limited(session_on_first_step):
-    sender = connection()
-
-    replies = [await call(session_on_first_step, sender, "message.send", {"text": "Сюда"}) for _ in range(5)]
-
-    assert [reply["event"] for reply in replies[:3]] == ["ack", "ack", "ack"]
-    assert replies[3]["payload"]["code"] == "rate_limited"
+        assert reply["payload"]["code"] == "unknown_command"
 
 
 async def test_confusion_flag_is_checked_and_limited(session_on_first_step):
@@ -158,16 +133,16 @@ async def test_confusion_flag_is_checked_and_limited(session_on_first_step):
 
 async def test_idle_rate_limit_records_are_forgotten(session_on_first_step):
     idle, busy = connection(), connection()
-    await call(session_on_first_step, idle, "message.send", {"text": "Сюда"})
-    await call(session_on_first_step, busy, "message.send", {"text": "Сюда"})
-    idle_key = (idle.viewer.participant_id, "message")
-    busy_key = (busy.viewer.participant_id, "message")
-    commands.message_limit.buckets[idle_key].updated = now() - timedelta(minutes=11)
+    await call(session_on_first_step, idle, "annotation.clear", {})
+    await call(session_on_first_step, busy, "annotation.clear", {})
+    idle_key = (idle.viewer.participant_id, "annotation")
+    busy_key = (busy.viewer.participant_id, "annotation")
+    commands.annotation_limit.buckets[idle_key].updated = now() - timedelta(minutes=11)
 
     commands.prune_limits()
 
-    assert idle_key not in commands.message_limit.buckets
-    assert busy_key in commands.message_limit.buckets
+    assert idle_key not in commands.annotation_limit.buckets
+    assert busy_key in commands.annotation_limit.buckets
 
 
 async def test_unknown_session_has_no_elements_to_show(client):

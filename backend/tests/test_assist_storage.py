@@ -15,6 +15,10 @@ async def user_by_key(db, key: str) -> User:
     return await db.scalar(select(User).where(User.dev_key == key))
 
 
+def open_help(owner: User, service_session_id: UUID) -> AssistSession:
+    return domain.start(owner, service_session_id, "housing_compensation", 1)
+
+
 async def new_application(client) -> tuple[dict[str, str], UUID]:
     headers = await login(client, "ludmila")
     await login(client, "sergey")
@@ -27,7 +31,7 @@ async def test_session_with_participants_and_invites_is_stored(client):
     async with session_factory() as db:
         owner = await user_by_key(db, "ludmila")
         helper = await user_by_key(db, "sergey")
-        assist = domain.start(owner, service_session_id)
+        assist = open_help(owner, service_session_id)
         invite, token = domain.create_invite(assist, owner)
         db.add(assist)
         await db.flush()
@@ -53,10 +57,10 @@ async def test_only_one_live_session_per_application(client):
 
     async with session_factory() as db:
         owner = await user_by_key(db, "ludmila")
-        db.add(domain.start(owner, service_session_id))
+        db.add(open_help(owner, service_session_id))
         await db.commit()
 
-        db.add(domain.start(owner, service_session_id))
+        db.add(open_help(owner, service_session_id))
         with pytest.raises(IntegrityError):
             await db.commit()
 
@@ -66,12 +70,12 @@ async def test_ended_session_does_not_block_a_new_one(client):
 
     async with session_factory() as db:
         owner = await user_by_key(db, "ludmila")
-        first = domain.start(owner, service_session_id)
+        first = open_help(owner, service_session_id)
         db.add(first)
         await db.commit()
 
         domain.end_by_owner(first, owner)
-        db.add(domain.start(owner, service_session_id))
+        db.add(open_help(owner, service_session_id))
         await db.commit()
 
 
@@ -81,7 +85,7 @@ async def test_same_user_is_stored_once_per_session(client):
     async with session_factory() as db:
         owner = await user_by_key(db, "ludmila")
         helper = await user_by_key(db, "sergey")
-        assist = domain.start(owner, service_session_id)
+        assist = open_help(owner, service_session_id)
         db.add(assist)
         await db.flush()
 
@@ -99,12 +103,12 @@ async def test_same_user_is_stored_once_per_session(client):
         assert len(assist.participants) == 2
 
 
-async def test_reset_removes_assist_sessions_of_the_application(client):
+async def test_reset_ends_live_help_but_keeps_the_meeting(client):
     headers, service_session_id = await new_application(client)
 
     async with session_factory() as db:
         owner = await user_by_key(db, "ludmila")
-        assist = domain.start(owner, service_session_id)
+        assist = open_help(owner, service_session_id)
         db.add(assist)
         await db.commit()
         assist_id = assist.id
@@ -112,5 +116,8 @@ async def test_reset_removes_assist_sessions_of_the_application(client):
     reset = await client.post("/api/v1/dev/reset", headers=headers)
 
     async with session_factory() as db:
+        kept = await db.get(AssistSession, assist_id)
         assert reset.status_code == 200
-        assert await db.get(AssistSession, assist_id) is None
+        assert (kept.status, kept.end_reason) == ("ended", "cancelled")
+        assert kept.service_session_id is None
+        assert (kept.service_code, kept.service_version) == ("housing_compensation", 1)
