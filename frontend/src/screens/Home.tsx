@@ -6,6 +6,7 @@ import { deleteServiceSession } from '../api/client';
 import { queryKeys, queryPolicy, removeCachedSession, servicesQuery, sessionsQuery } from '../api/queries';
 import { launchIntentLabel, type LaunchIntent } from '../platform/startParam';
 import { ScreenIntro, SectionHeading, StatusMark } from '../components/ScreenIntro';
+import { ConfirmDialog } from '../components/AppDialog';
 
 interface HomeProps {
   user: AuthUser;
@@ -129,16 +130,7 @@ export function Home({ user, launchIntent, onOpenService }: HomeProps) {
         </section>
       )}
 
-      {deleteCandidate && (
-        <div className="delete-confirm" role="alertdialog" aria-labelledby="delete-application-title">
-          <Typography.Title id="delete-application-title">Удалить заявление?</Typography.Title>
-          <Typography.Text>«{deleteCandidate.service.title}» будет удалено без возможности восстановления.</Typography.Text>
-          <Flex gap={8} className="delete-confirm__actions">
-            <Button size="small" stretched variant="secondary" disabled={removeSession.isPending} onClick={() => setDeleteCandidate(null)}>Отмена</Button>
-            <Button size="small" stretched variant="destructive" loading={removeSession.isPending} onClick={() => removeSession.mutate(deleteCandidate.id)}>Удалить</Button>
-          </Flex>
-        </div>
-      )}
+      {deleteCandidate && <ConfirmDialog title="Удалить заявление?" description={`«${deleteCandidate.service.title}» будет удалено без возможности восстановления.`} confirmLabel="Удалить" destructive pending={removeSession.isPending} onCancel={() => setDeleteCandidate(null)} onConfirm={() => removeSession.mutate(deleteCandidate.id)} />}
 
       {launchIntent.kind !== 'home' && (
         <div className="launch-note">

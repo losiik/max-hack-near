@@ -46,7 +46,7 @@ export function H3Helper({ snapshot, connection, onLeave }: { snapshot: Projecte
           />
         ))}
       </Flex>
-      <Button variant="ghost" onClick={onLeave}>Выйти из помощи</Button>
+      <Button size="small" stretched variant="destructive" onClick={onLeave}>Выйти из помощи</Button>
     </Flex>
   );
 }

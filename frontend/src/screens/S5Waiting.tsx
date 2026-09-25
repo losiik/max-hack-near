@@ -17,7 +17,7 @@ export function S5Waiting({ session, connection, onShareAgain, onContinue, onEnd
       <div className="status-hero"><StatusMark tone={connection === 'reconnecting' ? 'attention' : 'positive'} /><div><Typography.Label>{connection === 'reconnecting' ? 'Соединение восстанавливается' : 'Приглашение активно'}</Typography.Label><Typography.Text>Можно продолжать заполнять заявление.</Typography.Text></div></div>
       <Button size="small" stretched onClick={onShareAgain}>Отправить ссылку ещё раз</Button>
       <Button size="small" variant="secondary" stretched onClick={onContinue}>Продолжить заполнение</Button>
-      <Button size="small" variant="ghost" onClick={onEnd}>Отменить ожидание</Button>
+      <Button size="small" stretched variant="destructive" onClick={onEnd}>Отменить ожидание</Button>
     </Flex>
   );
 }

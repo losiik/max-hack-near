@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Button, Flex, Typography } from '@maxhub/max-ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { acceptAssistInvite, agreeToRecording, ApiError, approveAssistParticipant, createAssistInvite, createAssistSession, endAssistSession, leaveAssistSession, loginWithMax, rejectAssistParticipant, startServiceSession, type AssistSession, type AuthUser, type ServiceDefinition, type ServiceSession, type ServiceSummary, type SubmitResult } from './api/client';
+import { acceptAssistInvite, agreeToRecording, ApiError, approveAssistParticipant, createAssistInvite, createAssistSession, endAssistSession, leaveAssistSession, loginWithMax, rejectAssistParticipant, startServiceSession, type AssistInvite, type AssistSession, type AuthUser, type ServiceDefinition, type ServiceSession, type ServiceSummary, type SubmitResult } from './api/client';
+import { InviteReadyDialog } from './components/InviteReadyDialog';
 import { cacheAssistSession, cacheSession, queryKeys, serviceQuery } from './api/queries';
 import { AppShell } from './app/AppShell';
 import { A0 } from './screens/A0';
@@ -18,7 +19,7 @@ import { S6ApproveHelper } from './screens/S6ApproveHelper';
 import { S7Confirmation } from './screens/S7Confirmation';
 import { S8Submitted } from './screens/S8Submitted';
 import { S9Ended } from './screens/S9Ended';
-import { getDisplayNameHint, getInitData, getStartParam, isMaxRuntime, shareMaxContent } from './platform/maxBridge';
+import { getDisplayNameHint, getInitData, getStartParam, isMaxRuntime } from './platform/maxBridge';
 import { parseStartParam, type LaunchIntent } from './platform/startParam';
 import { useAssistStore } from './realtime/assistStore';
 import { useAssistSocket } from './realtime/useAssistSocket';
@@ -37,6 +38,7 @@ export default function App() {
   const [assist, setAssist] = useState<AssistSession | null>(null);
   const [inviteToken, setInviteToken] = useState<string | null>(null);
   const [consent, setConsent] = useState(false);
+  const [inviteReady, setInviteReady] = useState<AssistInvite | null>(null);
   const [consentRequired, setConsentRequired] = useState(false);
   const [assistError, setAssistError] = useState('');
   const maxUserHint = useMemo(getDisplayNameHint, []);
@@ -95,8 +97,8 @@ export default function App() {
       const nextAssist = await createAssist.mutateAsync(draft.id);
       const invite = await createAssistInvite(nextAssist.id);
       setAssist(nextAssist);
-      await shareMaxContent({ text: invite.share_text, link: invite.deep_link });
       setMode('waiting');
+      setInviteReady(invite);
     } catch (reason) {
       if (reason instanceof ApiError && reason.code === 'recording_consent_required') { setConsentRequired(true); setAssistError('Перед приглашением подтвердите согласие на запись разговора.'); }
       else setAssistError(reason instanceof Error ? reason.message : 'Не удалось подготовить приглашение.');
@@ -105,7 +107,7 @@ export default function App() {
   async function shareAgain() {
     if (!assist) return;
     setAssistError('');
-    try { const invite = await createAssistInvite(assist.id); await shareMaxContent({ text: invite.share_text, link: invite.deep_link }); }
+    try { const invite = await createAssistInvite(assist.id); setInviteReady(invite); }
     catch (reason) { setAssistError(reason instanceof Error ? reason.message : 'Не удалось отправить ссылку.'); }
   }
   async function finishAssist() {
@@ -156,5 +158,6 @@ export default function App() {
     {mode === 'helper-active' && realtime.snapshot && <H3Helper snapshot={realtime.snapshot} connection={realtime.connection} onLeave={() => void leaveAssist()} />}
     {mode === 'assist-ended' && assist && <S9Ended sessionId={assist.id} owner={Boolean(realtime.snapshot?.session.me.role === 'owner' || draft)} onContinue={() => setMode('form')} onHome={backToHome} />}
     {realtime.joinRequest && assist && <S6ApproveHelper helper={realtime.joinRequest} busy={false} error={assistError} onApprove={() => void approveJoin(true)} onReject={() => void approveJoin(false)} />}
+    {inviteReady && <InviteReadyDialog invite={inviteReady} onClose={() => setInviteReady(null)} />}
   </AppShell>;
 }

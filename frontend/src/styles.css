@@ -549,6 +549,62 @@ input {
   background: var(--background-content);
 }
 
+.app-dialog-backdrop {
+  position: fixed;
+  z-index: 50;
+  inset: 0;
+  display: flex;
+  align-items: end;
+  padding: 8px;
+  background: rgb(0 0 0 / 0.46);
+  backdrop-filter: blur(8px);
+}
+
+.app-dialog {
+  width: min(100%, 560px);
+  margin: 0 auto;
+  padding: 14px 12px max(14px, env(safe-area-inset-bottom));
+  border-radius: 18px 18px 12px 12px;
+  background: var(--background-content, var(--background-primary));
+}
+
+.app-toast {
+  position: fixed;
+  z-index: 60;
+  right: 12px;
+  bottom: max(16px, env(safe-area-inset-bottom));
+  left: 12px;
+  width: min(100% - 24px, 536px);
+  margin: 0 auto;
+  padding: 10px 12px;
+  border-radius: 12px;
+  color: var(--button-primary-contrast);
+  background: var(--button-primary);
+}
+
+.app-toast--error {
+  background: var(--button-negative, var(--text-negative));
+}
+
+.invite-link {
+  overflow-wrap: anywhere;
+  padding: 10px;
+  border-radius: 10px;
+  color: var(--text-secondary);
+  background: var(--background-secondary);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
 .projected-field {
   padding: 12px 14px;
   border-radius: 16px;

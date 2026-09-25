@@ -1,6 +1,7 @@
 import { useEffect, type ReactNode } from 'react';
 import { Flex, Typography } from '@maxhub/max-ui';
 import { showBackButton } from '../platform/maxBridge';
+import { ToastProvider } from '../components/ToastProvider';
 
 interface AppShellProps {
   children: ReactNode;
@@ -15,7 +16,7 @@ export function AppShell({ children, title = 'Рядом', onBack }: AppShellPro
   }, [onBack]);
 
   return (
-    <div className="app-shell">
+    <ToastProvider><div className="app-shell">
       <div className="app-shell__panel">
         <Flex direction="column" gap={12}>
           <header className="app-shell__header">
@@ -27,6 +28,6 @@ export function AppShell({ children, title = 'Рядом', onBack }: AppShellPro
           <main>{children}</main>
         </Flex>
       </div>
-    </div>
+    </div></ToastProvider>
   );
 }

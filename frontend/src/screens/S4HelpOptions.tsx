@@ -23,7 +23,7 @@ export function S4HelpOptions({ consentRequired, consent, busy, error, onConsent
       )}
       {error && <div className="notice notice--error">{error}</div>}
       <Button variant="primary" size="small" stretched disabled={busy || (consentRequired && !consent)} onClick={onSendLink}>
-        {busy ? 'Готовим ссылку…' : 'Отправить ссылку близкому'}
+        {busy ? 'Готовим ссылку…' : 'Подготовить ссылку'}
       </Button>
       <div className="privacy-note">
         <Typography.Text>
