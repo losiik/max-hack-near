@@ -8,6 +8,7 @@ import pytest
 
 from max_assist.config import settings
 from max_assist.errors import Unauthorized
+from max_assist.modules.identity import service
 from max_assist.modules.identity.max_init_data import parse_init_data
 from tests.helpers import forget_user
 
@@ -100,6 +101,35 @@ async def test_login_through_max_creates_user_and_keeps_profile_fresh(client, mo
     assert first.json()["user"]["display_name"] == "Людмила П."
     assert second.json()["user"]["id"] == first.json()["user"]["id"]
     assert me.json()["last_name"] == "Иванова"
+
+
+async def test_mfc_employee_from_max_gets_staff_profile(client, monkeypatch):
+    monkeypatch.setattr(settings, "max_bot_token", BOT_TOKEN)
+    staff = {"organization": "МФЦ Фрунзенского района", "position": "Главный специалист"}
+    monkeypatch.setitem(service.MFC_STAFF, USER["id"], staff)
+    await forget_user(max_user_id=USER["id"])
+
+    login = await client.post("/api/v1/auth/max", json={"init_data": build()})
+    headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+    me = await client.get("/api/v1/me", headers=headers)
+    queue = await client.get("/api/v1/operator/requests", headers=headers)
+
+    assert me.json()["staff"]["organization"] == "МФЦ Фрунзенского района"
+    assert me.json()["staff"]["verified"]
+    assert queue.status_code == 200
+
+
+async def test_ordinary_max_user_is_not_staff(client, monkeypatch):
+    monkeypatch.setattr(settings, "max_bot_token", BOT_TOKEN)
+    await forget_user(max_user_id=USER["id"])
+
+    login = await client.post("/api/v1/auth/max", json={"init_data": build()})
+    headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+    me = await client.get("/api/v1/me", headers=headers)
+    queue = await client.get("/api/v1/operator/requests", headers=headers)
+
+    assert me.json()["staff"] is None
+    assert queue.status_code == 403
 
 
 async def test_login_through_max_rejects_broken_signature(client, monkeypatch):

@@ -29,7 +29,7 @@ export interface MaxWebApp {
   };
   shareMaxContent?: (params: { text?: string; link?: string }) => void;
   /** Opens the MAX QR reader. Keep this as a method on WebApp: the bridge uses `this`. */
-  openCodeReader?: (fileSelect?: boolean) => Promise<string>;
+  openCodeReader?: (fileSelect?: boolean) => Promise<string | { value?: unknown } | null | undefined>;
   requestScreenMaxBrightness?: () => Promise<unknown>;
   restoreScreenBrightness?: () => Promise<unknown>;
   getViewportSize?: () => Promise<{ height: string; width: string }>;
@@ -144,18 +144,26 @@ export async function openCodeReader(): Promise<string | null> {
   }
 
   try {
-    // MAX Bridge expects a boolean (`fileSelect`), not a callback. Call it through
-    // WebApp so the bridge keeps its `this` context and can access requestController.
-    const value = await webApp.openCodeReader(false);
-    return value?.trim() || null;
+    // Match the official MAX example: omitted fileSelect enables camera and gallery.
+    // Keep the call on WebApp so the bridge retains `this` and requestController.
+    const result = await webApp.openCodeReader();
+    const value = typeof result === 'string'
+      ? result
+      : result && typeof result === 'object' && typeof result.value === 'string'
+        ? result.value
+        : '';
+    return value.trim() || null;
   } catch (reason) {
     const error = typeof reason === 'object' && reason !== null && 'error' in reason ? reason.error : undefined;
     const code = typeof reason === 'object' && reason !== null && 'code' in reason ? String(reason.code) : typeof error === 'object' && error !== null && 'code' in error ? String(error.code) : '';
-    const message = reason instanceof Error ? reason.message : String(reason);
+    const nestedMessage = typeof error === 'object' && error !== null && 'message' in error ? String(error.message) : '';
+    const message = reason instanceof Error ? reason.message : typeof reason === 'object' && reason !== null && 'message' in reason ? String(reason.message) : nestedMessage || String(reason);
     if (code.includes('unsupported_method') || message.includes('UnsupportedEvent')) {
-      throw new Error('Этот клиент MAX не поддерживает сканирование QR. Вставьте ссылку приглашения вручную.');
+      throw new Error(`Этот клиент MAX не поддерживает сканирование QR${code ? ` (${code})` : ''}. Вставьте ссылку приглашения вручную.`);
     }
-    throw new Error('Не удалось открыть сканер QR-кода. Откройте приложение внутри MAX и попробуйте ещё раз.');
+    if (/cancel|dismiss|closed|user.?back/i.test(code) || /cancel|dismiss|user.?back/i.test(message)) return null;
+    const detail = [code, message].filter(Boolean).join(': ').slice(0, 180);
+    throw new Error(`Не удалось открыть сканер QR-кода${detail ? ` (${detail})` : ''}. Откройте приложение внутри MAX и попробуйте ещё раз.`);
   }
 }
 

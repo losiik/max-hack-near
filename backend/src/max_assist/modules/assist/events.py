@@ -6,6 +6,7 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from max_assist.db import session_factory
+from max_assist.modules.applications.domain import ApplicationForm
 from max_assist.modules.applications.models import ServiceSession
 from max_assist.modules.assist import domain
 from max_assist.modules.assist.annotations import Annotation, board
@@ -118,7 +119,21 @@ def status_changed(assist: AssistSession, participant: AssistParticipant) -> dic
 
 async def snapshot(db: AsyncSession, assist: AssistSession, participant: AssistParticipant) -> dict[str, Any]:
     view = await snapshot_view(db, assist, participant.user_id, participant)
-    return envelope(assist.id, "session.snapshot", view.model_dump(mode="json"))
+    payload = view.model_dump(mode="json")
+    active_select = hub.get_select_view(assist.id)
+    if active_select and participant.role != "owner":
+        element_id = active_select.get("element_id")
+        element = next(
+            (
+                item
+                for item in view.current_step.elements
+                if item.id == element_id and item.type == "select" and item.options
+            ),
+            None,
+        )
+        if element is not None:
+            payload["select_view"] = active_select
+    return envelope(assist.id, "session.snapshot", payload)
 
 
 async def greeting(db: AsyncSession, assist: AssistSession, participant: AssistParticipant) -> dict[str, Any]:
@@ -172,6 +187,23 @@ def invite_declined(
         next_seq(assist),
     )
     return [Delivery([owner.id], message)]
+
+
+def active_helpers(assist: AssistSession) -> list[UUID]:
+    return [item.id for item in assist.participants if item.status == "active" and item.role != "owner"]
+
+
+def select_view(assist_id: UUID, view: dict[str, Any] | None, recipients: list[UUID]) -> list[Delivery]:
+    return [
+        Delivery(
+            recipients,
+            envelope(
+                assist_id,
+                "form.select_view",
+                view or {"element_id": None, "open": False, "scroll_top": 0, "viewport_height": 0},
+            ),
+        )
+    ]
 
 
 async def joined(
@@ -265,6 +297,7 @@ def agent_left(assist: AssistSession, participant: AssistParticipant, reason: st
 
 def ended(assist: AssistSession, recipients: list[UUID]) -> list[Delivery]:
     board.clear_step(assist.id)
+    hub.set_select_view(assist.id, None)
     message = envelope(
         assist.id,
         "session.ended",
@@ -329,6 +362,15 @@ def fields_updated(
     definition: ServiceDefinition,
     element_ids: list[str],
 ) -> list[Delivery]:
+    active_select = hub.get_select_view(assist.id)
+    if active_select:
+        snapshot = application_snapshot(row)
+        form = ApplicationForm(definition, snapshot.values)
+        step = definition.step(row.current_step_id)
+        element = next((item for item in step.elements if item.id == active_select.get("element_id")), None)
+        if element is None or element.type != "select" or not form.is_visible(element):
+            hub.set_select_view(assist.id, None)
+
     def payload(_: AssistParticipant, state: ProjectedState) -> dict[str, Any]:
         return {
             "element_ids": element_ids,
@@ -336,7 +378,10 @@ def fields_updated(
             "errors": [error.model_dump(mode="json") for error in state.errors],
         }
 
-    return for_each_participant(assist, row, definition, "form.field_updated", payload)
+    deliveries = for_each_participant(assist, row, definition, "form.field_updated", payload)
+    if active_select and hub.get_select_view(assist.id) is None:
+        deliveries.extend(select_view(assist.id, None, active_helpers(assist)))
+    return deliveries
 
 
 def step_changed(
@@ -346,6 +391,8 @@ def step_changed(
     from_step_id: str,
 ) -> list[Delivery]:
     board.clear_step(assist.id)
+    active_select = hub.get_select_view(assist.id)
+    hub.set_select_view(assist.id, None)
 
     def payload(_: AssistParticipant, state: ProjectedState) -> dict[str, Any]:
         return {
@@ -355,7 +402,10 @@ def step_changed(
             "errors": [error.model_dump(mode="json") for error in state.errors],
         }
 
-    return for_each_participant(assist, row, definition, "navigation.step_changed", payload)
+    deliveries = for_each_participant(assist, row, definition, "navigation.step_changed", payload)
+    if active_select:
+        deliveries.extend(select_view(assist.id, None, active_helpers(assist)))
+    return deliveries
 
 
 def validation_failed(

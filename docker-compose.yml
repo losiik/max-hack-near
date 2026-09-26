@@ -144,7 +144,7 @@ services:
     image: busybox:1.37
     command: ["sh", "-c", "chown 1001:0 /out && chmod 0770 /out"]
     volumes:
-      - ./recordings:/out
+      - ${RECORDINGS_VOLUME:-./recordings}:/out
     restart: "no"
     logging: *logging
 

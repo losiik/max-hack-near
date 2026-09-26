@@ -1,6 +1,8 @@
 import { Radio, Switch, Flex, Typography } from '@maxhub/max-ui';
 import type { FieldError, ServiceDefinition, ServiceElement, ServiceStep } from '../api/client';
 import { AppIcon, AppInput } from './UiPrimitives';
+import { SyncedSelect } from './SyncedSelect';
+import { useAssistStore } from '../realtime/assistStore';
 
 type FieldValue = string | number | boolean | null;
 
@@ -12,6 +14,7 @@ interface FormRendererProps {
   onChange: (elementId: string, value: FieldValue) => void;
   onBlur: () => void;
   showPrivacyHints?: boolean;
+  syncSelects?: boolean;
 }
 
 function isVisible(element: ServiceElement, values: Record<string, unknown>): boolean {
@@ -76,7 +79,14 @@ function PrivacyHint({ element, visible }: { element: ServiceElement; visible: b
   return <small className="privacy-hint"><AppIcon name="lock" />Помощник не видит это значение</small>;
 }
 
-export function FormRenderer({ definition, step, values, errors, onChange, onBlur, showPrivacyHints = false }: FormRendererProps) {
+export function FormRenderer({ definition, step, values, errors, onChange, onBlur, showPrivacyHints = false, syncSelects = false }: FormRendererProps) {
+  const selectView = useAssistStore((state) => state.selectView);
+  const setSelectView = useAssistStore((state) => state.setSelectView);
+  const sendCommand = useAssistStore((state) => state.sendCommand);
+  const changeSelectView = (elementId: string | null, open: boolean, scrollTop = 0, viewportHeight = 0) => {
+    setSelectView(open && elementId ? { elementId, scrollTop, viewportHeight: viewportHeight || undefined } : null);
+    sendCommand?.('owner.select_view', { element_id: elementId, open, scroll_top: scrollTop, viewport_height: viewportHeight });
+  };
   const errorFor = (elementId: string) => errors.find((error) => error.element_id === elementId);
   const currentStepIndex = definition.steps.findIndex((serviceStep) => serviceStep.id === step.id);
   const summaryRows = definition.steps.slice(0, Math.max(0, currentStepIndex)).flatMap((serviceStep) =>
@@ -167,28 +177,37 @@ export function FormRenderer({ definition, step, values, errors, onChange, onBlu
 
         if (element.type === 'select') {
           return (
-            <label className="input-field" key={element.id} data-assist-id={element.id}>
+            <div className="input-field" key={element.id} data-assist-id={element.id}>
               <span>
                 {label}
                 {element.required ? ' *' : ''}
               </span>
               <PrivacyHint element={element} visible={showPrivacyHints} />
-              <select
-                className="max-select"
+              <SyncedSelect
+                elementId={element.id}
+                options={element.options ?? []}
                 value={typeof value === 'string' ? value : ''}
-                onChange={(event) => onChange(element.id, event.target.value || null)}
-                onBlur={onBlur}
-              >
-                <option value="">Выберите вариант</option>
-                {element.options?.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
+                ariaLabel={label}
+                shared={syncSelects}
+                open={selectView?.elementId === element.id}
+                scrollTop={selectView?.elementId === element.id ? selectView.scrollTop : 0}
+                viewportHeight={selectView?.elementId === element.id ? selectView.viewportHeight : undefined}
+                onChange={(next) => { if (syncSelects) changeSelectView(null, false); onChange(element.id, next); onBlur(); }}
+                onOpenChange={(open) => changeSelectView(open ? element.id : null, open)}
+                onScrollTop={(scrollTop) => {
+                  const viewportHeight = selectView?.elementId === element.id ? selectView.viewportHeight ?? 0 : 0;
+                  setSelectView({ elementId: element.id, scrollTop, viewportHeight: viewportHeight || undefined });
+                  sendCommand?.('owner.select_view', { element_id: element.id, open: true, scroll_top: scrollTop, viewport_height: viewportHeight });
+                }}
+                onViewportHeight={(viewportHeight) => {
+                  const scrollTop = selectView?.elementId === element.id ? selectView.scrollTop : 0;
+                  setSelectView({ elementId: element.id, scrollTop, viewportHeight });
+                  sendCommand?.('owner.select_view', { element_id: element.id, open: true, scroll_top: scrollTop, viewport_height: viewportHeight });
+                }}
+              />
               {element.hint && <small className="field-hint">{element.hint}</small>}
               {error && <small className="field-error">{error.message}</small>}
-            </label>
+            </div>
           );
         }
 

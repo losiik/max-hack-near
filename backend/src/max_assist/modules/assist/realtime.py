@@ -36,6 +36,16 @@ class Connection:
 class Hub:
     def __init__(self) -> None:
         self.sessions: dict[UUID, dict[UUID, list[Connection]]] = {}
+        self.select_views: dict[UUID, dict[str, Any] | None] = {}
+
+    def set_select_view(self, assist_id: UUID, view: dict[str, Any] | None) -> None:
+        if view is None:
+            self.select_views.pop(assist_id, None)
+        else:
+            self.select_views[assist_id] = view
+
+    def get_select_view(self, assist_id: UUID) -> dict[str, Any] | None:
+        return self.select_views.get(assist_id)
 
     def connect(self, assist_id: UUID, viewer: Viewer, websocket: Any) -> tuple[Connection, bool]:
         connections = self.sessions.setdefault(assist_id, {}).setdefault(viewer.participant_id, [])

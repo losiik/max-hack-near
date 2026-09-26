@@ -365,6 +365,48 @@ def test_helper_snapshot_shows_form_without_secret_values(api):
     assert "Тайная улица" not in json.dumps(payload, ensure_ascii=False)
 
 
+def test_owner_select_open_and_scroll_are_mirrored_to_helper(api):
+    owner, assist = owner_with_assist(api)
+    helper, _ = active_helper(api, owner, assist["id"])
+
+    with api.websocket_connect(socket_url(assist["id"], owner)) as owner_ws:
+        owner_ws.receive_json()
+        with api.websocket_connect(socket_url(assist["id"], helper)) as helper_ws:
+            helper_ws.receive_json()
+            owner_ws.receive_json()
+
+            owner_ws.send_json(
+                {
+                    "command": "owner.select_view",
+                    "payload": {
+                        "element_id": "benefit_category",
+                        "open": True,
+                        "scroll_top": 144,
+                        "viewport_height": 240,
+                    },
+                }
+            )
+            opened = helper_ws.receive_json()
+            assert opened["event"] == "form.select_view"
+            assert opened["seq"] is None
+            assert opened["payload"] == {
+                "element_id": "benefit_category",
+                "open": True,
+                "scroll_top": 144,
+                "viewport_height": 240,
+            }
+
+            owner_ws.send_json(
+                {
+                    "command": "owner.select_view",
+                    "payload": {"element_id": None, "open": False, "scroll_top": 0, "viewport_height": 0},
+                }
+            )
+            closed = helper_ws.receive_json()
+            assert closed["event"] == "form.select_view"
+            assert closed["payload"]["open"] is False
+
+
 def test_form_changes_reach_everyone_in_their_own_projection(api):
     owner, assist = owner_with_assist(api)
     helper, _ = active_helper(api, owner, assist["id"])

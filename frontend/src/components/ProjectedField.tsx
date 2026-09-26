@@ -2,6 +2,8 @@ import type { PointerEvent } from 'react';
 import { Button, Flex, Typography } from '@maxhub/max-ui';
 import type { FieldError, ProjectedElement } from '../api/client';
 import { AppIcon } from './UiPrimitives';
+import { SyncedSelect } from './SyncedSelect';
+import type { AssistSelectView } from '../realtime/assistStore';
 
 interface ProjectedFieldProps {
   element: ProjectedElement;
@@ -11,6 +13,7 @@ interface ProjectedFieldProps {
   onShow?: (elementId: string) => void;
   onPointer?: (elementId: string, event: PointerEvent<HTMLElement>) => void;
   onPointerEnd?: () => void;
+  selectView?: AssistSelectView | null;
 }
 
 function publicValue(value: unknown): string {
@@ -34,7 +37,7 @@ function ChoiceView({ element }: { element: ProjectedElement }) {
   </div>;
 }
 
-function ValueView({ element }: { element: ProjectedElement }) {
+function ValueView({ element, selectView }: { element: ProjectedElement; selectView?: AssistSelectView | null }) {
   if (element.type === 'info') return <Typography.Text>{element.text}</Typography.Text>;
   if (element.type === 'action') {
     return <Typography.Text>{element.action?.available ? element.action.label : <span className="projected-field__locked"><AppIcon name="lock" />Отправить заявление может только владелец</span>}</Typography.Text>;
@@ -45,11 +48,25 @@ function ValueView({ element }: { element: ProjectedElement }) {
   if (element.privacy === 'masked') {
     return <span className="projected-field__masked"><span>████████</span><span className={element.view?.state === 'filled' ? 'is-filled' : ''}>{element.view?.state === 'filled' && <AppIcon name="check" />}{element.view?.state === 'filled' ? 'заполнено' : 'не заполнено'}</span></span>;
   }
-  if ((element.type === 'select' || element.type === 'radio') && element.options?.length) return <ChoiceView element={element} />;
+  if (element.type === 'select' && element.options?.length) {
+    const view = selectView?.elementId === element.id ? selectView : null;
+    return <SyncedSelect
+      elementId={element.id}
+      options={element.options}
+      value={typeof element.view?.value === 'string' ? element.view.value : null}
+      ariaLabel={element.label ?? 'Вариант ответа'}
+      readOnly
+      shared
+      open={Boolean(view)}
+      scrollTop={view?.scrollTop ?? 0}
+      viewportHeight={view?.viewportHeight}
+    />;
+  }
+  if (element.type === 'radio' && element.options?.length) return <ChoiceView element={element} />;
   return <Typography.Text>{publicValue(element.view?.value)}</Typography.Text>;
 }
 
-export function ProjectedField({ element, error, interactive = false, confusion = false, onShow, onPointer, onPointerEnd }: ProjectedFieldProps) {
+export function ProjectedField({ element, error, interactive = false, confusion = false, onShow, onPointer, onPointerEnd, selectView }: ProjectedFieldProps) {
   if (element.type === 'summary') {
     return (
       <div className="projected-field" data-assist-id={element.id}>
@@ -85,7 +102,7 @@ export function ProjectedField({ element, error, interactive = false, confusion 
       <Flex direction="column" gap={6}>
         <Typography.Text>{element.label ?? element.text ?? 'Поле'}</Typography.Text>
         {confusion && <span className="projected-field__confusion">Владельцу здесь непонятно</span>}
-        <ValueView element={element} />
+        <ValueView element={element} selectView={selectView} />
         {error && <Typography.Text className="field-error">{error.message}</Typography.Text>}
         {interactive && !onPointer && <div className="projected-field__action"><Button size="small" variant="secondary" onClick={() => onShow?.(element.id)}>Показать</Button></div>}
         {interactive && onPointer && <Typography.Text className="muted-text">Ведите пальцем по полю — владелец увидит указку.</Typography.Text>}

@@ -68,6 +68,24 @@ def test_helper_sees_public_values_and_only_state_of_the_rest():
     assert element(family, "has_disabled_members").view.state == "empty"
 
 
+def test_helper_does_not_receive_private_select_options():
+    service = definition()
+    region = next(item for step in service.steps for item in step.elements if item.id == "region")
+    region.privacy = "owner_only"
+    steps = [step.id for step in service.steps]
+    snapshot = ApplicationSnapshot(
+        values=VALUES,
+        current_step_id="address",
+        completed_step_ids=steps[: steps.index("address")],
+        errors=[],
+        status="draft",
+    )
+
+    projected = project(service, snapshot, "invited_helper")
+
+    assert element(projected, "region").options is None
+
+
 def test_owner_only_field_does_not_reveal_whether_it_is_filled():
     empty = state("family", "trusted_helper", values={})
     filled = state("family", "trusted_helper")

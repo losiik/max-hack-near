@@ -10,7 +10,8 @@ from max_assist.modules.assist import domain, events, journal
 from max_assist.modules.assist.annotations import KINDS, LABEL_LIMIT, board
 from max_assist.modules.assist.limits import RateLimiter
 from max_assist.modules.assist.models import AssistSession
-from max_assist.modules.assist.realtime import Connection
+from max_assist.modules.assist.realtime import Connection, hub
+from max_assist.modules.assist.visibility import effective_privacy
 
 DENIED = {
     "annotate": "Показывать элементы может только помощник",
@@ -20,10 +21,11 @@ DENIED = {
 annotation_limit = RateLimiter(per_second=3, burst=5)
 pointer_limit = RateLimiter(per_second=20, burst=20)
 confusion_limit = RateLimiter(per_second=0.2, burst=1)
+select_view_limit = RateLimiter(per_second=20, burst=20)
 
 
 def prune_limits() -> None:
-    for limiter in (annotation_limit, pointer_limit, confusion_limit):
+    for limiter in (annotation_limit, pointer_limit, confusion_limit, select_view_limit):
         limiter.prune(timedelta(minutes=10))
 
 
@@ -168,6 +170,69 @@ async def flag_confusion(
     return events.ack(assist_id, request_id, {})
 
 
+async def select_view(
+    assist_id: UUID,
+    connection: Connection,
+    payload: dict[str, Any],
+) -> dict[str, Any] | None:
+    viewer = connection.viewer
+    if viewer.status != "active" or viewer.role != "owner":
+        return events.error(assist_id, None, "forbidden", "Открывать список вариантов может только владелец")
+
+    is_open = payload.get("open") is True
+    element_id = payload.get("element_id")
+    try:
+        scroll_top = float(payload.get("scroll_top", 0))
+        viewport_height = float(payload.get("viewport_height", 0))
+    except (TypeError, ValueError):
+        return events.error(assist_id, None, "bad_payload", "Позиция и высота списка должны быть числами")
+    if not 0 <= scroll_top <= 10_000_000 or not 0 <= viewport_height <= 2_000:
+        return events.error(assist_id, None, "bad_payload", "Неверная позиция или высота списка")
+    if is_open and not select_view_limit.allow((viewer.participant_id, "select_view")):
+        return None
+
+    async with session_factory() as db:
+        assist = await db.get(AssistSession, assist_id)
+        if assist is None or assist.status != "active":
+            return events.error(assist_id, None, "session_inactive", "Встреча уже завершена")
+        if is_open:
+            if not isinstance(element_id, str) or element_id not in await elements_of_current_step(assist_id):
+                return events.error(assist_id, None, "unknown_element", "Этого поля нет на текущем шаге")
+            if assist.service_session_id is None:
+                return events.error(assist_id, None, "unknown_element", "Заявление не найдено")
+            row = await applications_service.get_by_id(db, assist.service_session_id)
+            definition = await applications_service.definition_of(db, row)
+            form = ApplicationForm(definition, applications_service.read_values(row))
+            step = definition.step(row.current_step_id)
+            element = next((item for item in step.elements if item.id == element_id), None)
+            if element is None or element.type != "select" or not form.is_visible(element):
+                return events.error(assist_id, None, "unknown_element", "Это поле нельзя показать помощнику")
+            recipients = [
+                participant.id
+                for participant in assist.participants
+                if participant.status == "active"
+                and participant.role != "owner"
+                and effective_privacy(element, participant.role) == "public"
+            ]
+            state = {
+                "element_id": element_id,
+                "open": True,
+                "scroll_top": scroll_top,
+                "viewport_height": viewport_height,
+            }
+        else:
+            state = None
+            recipients = [
+                participant.id
+                for participant in assist.participants
+                if participant.status == "active" and participant.role != "owner"
+            ]
+
+    hub.set_select_view(assist_id, state)
+    await events.publish(assist_id, events.select_view(assist_id, state, recipients))
+    return None
+
+
 async def handle(assist_id: UUID, connection: Connection, raw: str) -> dict[str, Any] | None:
     try:
         command = json.loads(raw)
@@ -191,6 +256,8 @@ async def handle(assist_id: UUID, connection: Connection, raw: str) -> dict[str,
         return await pointer(assist_id, connection, request_id, payload)
     if name == "owner.flag_confusion":
         return await flag_confusion(assist_id, connection, request_id, payload)
+    if name == "owner.select_view":
+        return await select_view(assist_id, connection, payload)
 
     kind = name.removeprefix("annotation.") if isinstance(name, str) else ""
     if kind in KINDS:

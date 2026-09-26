@@ -38,6 +38,10 @@ DEV_USERS = {
 }
 
 
+# сотрудники МФЦ, которые входят через MAX: ключ — id пользователя в MAX
+MFC_STAFF: dict[int, dict[str, str]] = {}
+
+
 async def login_with_max(session: AsyncSession, init_data: str) -> User:
     if not settings.max_bot_token:
         raise AppError(
@@ -62,6 +66,10 @@ async def login_with_max(session: AsyncSession, init_data: str) -> User:
     user.username = profile.get("username")
     user.photo_url = profile.get("photo_url")
     user.last_seen_at = now()
+
+    staff = MFC_STAFF.get(max_user_id)
+    if staff is not None and user.staff is None:
+        user.staff = StaffProfile(verified_at=now(), **staff)
 
     await session.commit()
     return user

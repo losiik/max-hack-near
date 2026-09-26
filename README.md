@@ -272,13 +272,15 @@ docker compose --profile local down
 docker compose --profile local down -v
 ```
 
+Для одноразового Docker-прогона, запущенного через `make deploy-local`, используйте `make local-clean`: команда удалит контейнеры, сеть, созданные Compose локальные образы и оба named volume (`pgdata`, `local_recordings`). Она повторно задаёт локальные параметры и не использует production-секреты из корневого `.env`. Обычные `docker compose stop`, `make local-down` и `docker compose down` данные намеренно сохраняют. `local-clean` не удаляет общие базовые образы Docker и build cache; для них не запускайте глобальный `docker system prune`, если на машине есть другие проекты.
+
 Логи:
 
 ```bash
 docker compose --profile local logs -f api agent egress
 ```
 
-Те же действия с проверкой готовности есть в `Makefile` (`make deploy-local`, `make local-down`, `make local-logs`) — для систем, где установлен GNU Make.
+Те же действия с проверкой готовности есть в `Makefile` (`make deploy-local`, `make local-down`, `make local-clean`, `make local-logs`) — для систем, где установлен GNU Make.
 
 ## Разработка без Docker
 

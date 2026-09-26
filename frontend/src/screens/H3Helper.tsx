@@ -13,6 +13,7 @@ export function H3Helper({ snapshot, connection, onLeave }: { snapshot: Projecte
   const owner = snapshot.session.owner;
   const sendCommand = useAssistStore((state) => state.sendCommand);
   const confusionElementId = useAssistStore((state) => state.confusionElementId);
+  const selectView = useAssistStore((state) => state.selectView);
   const annotationFeedback = useAssistStore((state) => state.annotationFeedback);
   const [kind, setKind] = useState<AnnotationKind>('highlight');
   const [label, setLabel] = useState('');
@@ -71,6 +72,7 @@ export function H3Helper({ snapshot, connection, onLeave }: { snapshot: Projecte
             element={element}
             error={snapshot.errors.find((error) => error.element_id === element.id)}
             confusion={confusionElementId === element.id}
+            selectView={selectView}
             interactive={canAnnotate && !['info', 'summary', 'action'].includes(element.type)}
             onShow={showAnnotation}
             onPointer={kind === 'pointer' ? point : undefined}

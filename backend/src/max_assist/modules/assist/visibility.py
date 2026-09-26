@@ -166,6 +166,7 @@ def element_view(
         )
 
     sees_everything = "view_sensitive_values" in capabilities
+    privacy = element.privacy if sees_everything else effective_privacy(element, role)
     return ElementView(
         id=element.id,
         type=element.type,
@@ -176,8 +177,8 @@ def element_view(
         text=element.text,
         style=element.style,
         required=element.required,
-        privacy=element.privacy if sees_everything else effective_privacy(element, role),
-        options=element.options,
+        privacy=privacy,
+        options=element.options if sees_everything or privacy == "public" else None,
         view=view,
         rows=rows,
         action=action,

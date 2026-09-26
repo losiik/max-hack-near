@@ -195,6 +195,7 @@ export function S3Form({ definition, initialSession, onRegisterBack, onSessionCh
         onChange={updateValue}
         onBlur={() => void flush()}
         showPrivacyHints={assist?.status === 'active'}
+        syncSelects={assist?.status === 'active'}
       />
 
       <Typography.Text className="save-state">

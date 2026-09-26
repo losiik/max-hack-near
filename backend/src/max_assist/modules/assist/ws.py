@@ -94,4 +94,9 @@ async def assist_socket(websocket: WebSocket, assist_id: UUID, token: str = "") 
         pass
     finally:
         if hub.disconnect(assist_id, viewer.participant_id, connection):
+            active_select = hub.get_select_view(assist_id)
+            if viewer.role == "owner" and active_select:
+                hub.set_select_view(assist_id, None)
+                helpers = hub.active_participants(assist_id, exclude=viewer.participant_id)
+                await events.publish(assist_id, events.select_view(assist_id, None, helpers))
             events.announce_presence_later(assist_id, viewer.participant_id)

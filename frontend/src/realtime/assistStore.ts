@@ -30,6 +30,8 @@ export interface AssistPointer {
   relY: number;
 }
 
+export interface AssistSelectView { elementId: string; scrollTop: number; viewportHeight?: number }
+
 export interface AnnotationFeedback { state: 'sending' | 'sent' | 'error'; message: string; requestId: string; }
 
 interface AssistRealtimeState {
@@ -41,6 +43,7 @@ interface AssistRealtimeState {
   endedReason: string | null;
   pointer: AssistPointer | null;
   confusionElementId: string | null;
+  selectView: AssistSelectView | null;
   inviteDeclined: boolean;
   rejected: boolean;
   annotationFeedback: AnnotationFeedback | null;
@@ -51,6 +54,7 @@ interface AssistRealtimeState {
   setConnection: (connection: AssistConnection, error?: string | null) => void;
   setSender: (sender: AssistRealtimeState['sendCommand']) => void;
   setAnnotationFeedback: (feedback: AnnotationFeedback | null) => void;
+  setSelectView: (view: AssistSelectView | null) => void;
   receive: (message: AssistEnvelope) => void;
   clearJoinRequest: () => void;
   reset: () => void;
@@ -70,6 +74,7 @@ export const useAssistStore = create<AssistRealtimeState>((set, get) => ({
   endedReason: null,
   pointer: null,
   confusionElementId: null,
+  selectView: null,
   inviteDeclined: false,
   rejected: false,
   annotationFeedback: null,
@@ -78,13 +83,14 @@ export const useAssistStore = create<AssistRealtimeState>((set, get) => ({
   sendCommand: null,
   begin: (sessionId) => {
     if (get().sessionId === sessionId) return;
-    set({ sessionId, connection: 'connecting', snapshot: null, pending: null, joinRequest: null, endedReason: null, pointer: null, confusionElementId: null, inviteDeclined: false, rejected: false, annotationFeedback: null, lastSeq: 0, error: null, sendCommand: null });
+    set({ sessionId, connection: 'connecting', snapshot: null, pending: null, joinRequest: null, endedReason: null, pointer: null, confusionElementId: null, selectView: null, inviteDeclined: false, rejected: false, annotationFeedback: null, lastSeq: 0, error: null, sendCommand: null });
   },
   setConnection: (connection, error = null) => set({ connection, error }),
   setSender: (sendCommand) => set({ sendCommand }),
   setAnnotationFeedback: (annotationFeedback) => set({ annotationFeedback }),
+  setSelectView: (selectView) => set({ selectView }),
   clearJoinRequest: () => set({ joinRequest: null }),
-  reset: () => set({ sessionId: null, connection: 'idle', snapshot: null, pending: null, joinRequest: null, endedReason: null, pointer: null, confusionElementId: null, inviteDeclined: false, rejected: false, annotationFeedback: null, lastSeq: 0, error: null, sendCommand: null }),
+  reset: () => set({ sessionId: null, connection: 'idle', snapshot: null, pending: null, joinRequest: null, endedReason: null, pointer: null, confusionElementId: null, selectView: null, inviteDeclined: false, rejected: false, annotationFeedback: null, lastSeq: 0, error: null, sendCommand: null }),
   receive: (message) => {
     const state = get();
     if (message.session_id && state.sessionId && message.session_id !== state.sessionId) return;
@@ -92,7 +98,19 @@ export const useAssistStore = create<AssistRealtimeState>((set, get) => ({
 
     if (message.event === 'session.snapshot') {
       const snapshot = message.payload as unknown as ProjectedState;
-      set({ snapshot, pending: null, rejected: false, lastSeq: snapshot.last_seq, connection: 'connected', error: null });
+      const rawSelectView = (message.payload.select_view ?? null) as {
+        element_id?: unknown;
+        scroll_top?: unknown;
+        viewport_height?: unknown;
+      } | null;
+      const selectView = typeof rawSelectView?.element_id === 'string'
+        ? {
+          elementId: rawSelectView.element_id,
+          scrollTop: Math.max(0, Number(rawSelectView.scroll_top) || 0),
+          viewportHeight: Math.max(0, Number(rawSelectView.viewport_height) || 0) || undefined,
+        }
+        : null;
+      set({ snapshot, selectView, pending: null, rejected: false, lastSeq: snapshot.last_seq, connection: 'connected', error: null });
       return;
     }
     if (message.event === 'session.pending') {
@@ -113,7 +131,7 @@ export const useAssistStore = create<AssistRealtimeState>((set, get) => ({
       return;
     }
     if (message.event === 'session.ended') {
-      set({ endedReason: String(message.payload.reason ?? 'ended'), connection: 'closed', lastSeq: nextSeq });
+      set({ endedReason: String(message.payload.reason ?? 'ended'), connection: 'closed', selectView: null, lastSeq: nextSeq });
       return;
     }
     if (message.event === 'invite.declined') {
@@ -134,6 +152,19 @@ export const useAssistStore = create<AssistRealtimeState>((set, get) => ({
         pending: null,
         rejected: false,
         lastSeq: nextSeq,
+      });
+      return;
+    }
+    if (message.event === 'form.select_view') {
+      const elementId = message.payload.element_id;
+      set({
+        selectView: message.payload.open === true && typeof elementId === 'string'
+          ? {
+            elementId,
+            scrollTop: Math.max(0, Number(message.payload.scroll_top) || 0),
+            viewportHeight: Math.max(0, Number(message.payload.viewport_height) || 0) || undefined,
+          }
+          : null,
       });
       return;
     }
@@ -202,7 +233,7 @@ export const useAssistStore = create<AssistRealtimeState>((set, get) => ({
       const currentStep = message.payload.current_step as ProjectedState['current_step'] | undefined;
       const errors = (message.payload.errors as FieldError[] | undefined) ?? snapshot.errors;
       const steps = (message.payload.steps as ProjectedState['steps'] | undefined) ?? snapshot.steps;
-      set({ snapshot: { ...snapshot, current_step: currentStep ?? snapshot.current_step, errors, steps, annotations: message.event === 'navigation.step_changed' ? [] : snapshot.annotations }, pointer: message.event === 'navigation.step_changed' ? null : state.pointer, confusionElementId: message.event === 'navigation.step_changed' ? null : state.confusionElementId, lastSeq: nextSeq });
+      set({ snapshot: { ...snapshot, current_step: currentStep ?? snapshot.current_step, errors, steps, annotations: message.event === 'navigation.step_changed' ? [] : snapshot.annotations }, pointer: message.event === 'navigation.step_changed' ? null : state.pointer, confusionElementId: message.event === 'navigation.step_changed' ? null : state.confusionElementId, selectView: message.event === 'navigation.step_changed' ? null : state.selectView, lastSeq: nextSeq });
       return;
     }
     if (message.event === 'form.validation_failed') {

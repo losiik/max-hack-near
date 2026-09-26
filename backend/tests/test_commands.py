@@ -75,6 +75,18 @@ async def test_owner_cannot_use_pointer(session_on_first_step):
     assert reply["payload"]["code"] == "forbidden"
 
 
+async def test_helper_cannot_control_the_owners_select(session_on_first_step):
+    reply = await call(
+        session_on_first_step,
+        connection(),
+        "owner.select_view",
+        {"element_id": "benefit_category", "open": True, "scroll_top": 80},
+    )
+
+    assert reply["event"] == "error"
+    assert reply["payload"]["code"] == "forbidden"
+
+
 async def test_clear_checks_the_id_and_answers_with_an_empty_list(session_on_first_step):
     sender = connection()
 

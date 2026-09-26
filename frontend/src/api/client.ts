@@ -267,7 +267,15 @@ export interface ConsultationSummary {
 }
 export interface ConsultationListItem extends ConsultationSummary { my_role: string; owner_display_name: string | null; stats: { highlights: number; confusions: number }; }
 export interface ConsultationDetail extends ConsultationSummary { chapters: Array<{ step_id: string; title: string; start_offset_ms: number; duration_ms: number; highlights: number; confusions: number; had_errors: boolean }>; }
-export interface ConsultationReplay { assist_session_id: string; service: { code: string; title: string }; duration_ms: number; steps: Array<{ id: string; index: number; title: string; elements: Array<{ id: string; type: string; label: string | null }> }>; recording: { status: string; url: string | null; offset_ms: number | null; duration_ms: number | null } | null; events: Array<{ seq: number | null; offset_ms: number; type: string; payload: Record<string, unknown> }>; }
+export interface ConsultationReplay {
+  assist_session_id: string;
+  service: { code: string; title: string };
+  duration_ms: number;
+  steps: Array<{ id: string; index: number; title: string; elements: Array<{ id: string; type: string; label: string | null; options: ServiceOption[] | null }> }>;
+  participants: Array<{ id: string; role: string; display_name: string }>;
+  recording: { status: string; url: string | null; offset_ms: number | null; duration_ms: number | null } | null;
+  events: Array<{ seq: number | null; offset_ms: number; type: string; actor_participant_id: string | null; payload: Record<string, unknown> }>;
+}
 
 export interface OperatorQueueItem {
   id: string;
