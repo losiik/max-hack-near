@@ -1,0 +1,4431 @@
+openapi: 3.1.0
+info:
+  title: Рядом
+  version: 0.1.0
+paths:
+  /api/v1/auth/max:
+    post:
+      tags:
+      - identity
+      summary: Login With Max
+      operationId: login_with_max_api_v1_auth_max_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MaxLoginRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/auth/dev-login:
+    post:
+      tags:
+      - identity
+      summary: Dev Login
+      operationId: dev_login_api_v1_auth_dev_login_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DevLoginRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/auth/review-login:
+    post:
+      tags:
+      - identity
+      summary: Review Login
+      operationId: review_login_api_v1_auth_review_login_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewLoginRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/dev/users:
+    get:
+      tags:
+      - identity
+      summary: Dev Users
+      operationId: dev_users_api_v1_dev_users_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/DevUserOut'
+                type: array
+                title: Response Dev Users Api V1 Dev Users Get
+  /api/v1/dev/reset:
+    post:
+      tags:
+      - identity
+      summary: Dev Reset
+      operationId: dev_reset_api_v1_dev_reset_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: integer
+                type: object
+                title: Response Dev Reset Api V1 Dev Reset Post
+      security:
+      - HTTPBearer: []
+  /api/v1/me:
+    get:
+      tags:
+      - identity
+      summary: Me
+      operationId: me_api_v1_me_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/max_assist__modules__identity__schemas__MeOut'
+      security:
+      - HTTPBearer: []
+  /api/v1/me/recording-consent:
+    post:
+      tags:
+      - identity
+      summary: Agree To Recording
+      operationId: agree_to_recording_api_v1_me_recording_consent_post
+      responses:
+        '204':
+          description: Successful Response
+      security:
+      - HTTPBearer: []
+  /api/v1/services:
+    get:
+      tags:
+      - catalog
+      summary: List Services
+      operationId: list_services_api_v1_services_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/ServiceSummaryOut'
+                type: array
+                title: Response List Services Api V1 Services Get
+      security:
+      - HTTPBearer: []
+  /api/v1/services/{code}:
+    get:
+      tags:
+      - catalog
+      summary: Get Service
+      operationId: get_service_api_v1_services__code__get
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: code
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Code
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Get Service Api V1 Services  Code  Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/service-sessions:
+    post:
+      tags:
+      - applications
+      summary: Start Session
+      operationId: start_session_api_v1_service_sessions_post
+      security:
+      - HTTPBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartSessionRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceSessionOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      tags:
+      - applications
+      summary: List Sessions
+      operationId: list_sessions_api_v1_service_sessions_get
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: status
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Status
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ServiceSessionOut'
+                title: Response List Sessions Api V1 Service Sessions Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/service-sessions/{session_id}:
+    get:
+      tags:
+      - applications
+      summary: Get Session
+      operationId: get_session_api_v1_service_sessions__session_id__get
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: session_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Session Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceSessionOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - applications
+      summary: Delete Session
+      operationId: delete_session_api_v1_service_sessions__session_id__delete
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: session_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Session Id
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/service-sessions/{session_id}/fields:
+    patch:
+      tags:
+      - applications
+      summary: Update Fields
+      operationId: update_fields_api_v1_service_sessions__session_id__fields_patch
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: session_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Session Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateFieldsRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceSessionOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/service-sessions/{session_id}/navigation:
+    post:
+      tags:
+      - applications
+      summary: Navigate
+      operationId: navigate_api_v1_service_sessions__session_id__navigation_post
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: session_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Session Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NavigationRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceSessionOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/service-sessions/{session_id}/confirmation-code:
+    post:
+      tags:
+      - applications
+      summary: Issue Confirmation Code
+      operationId: issue_confirmation_code_api_v1_service_sessions__session_id__confirmation_code_post
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: session_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Session Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationCodeOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/service-sessions/{session_id}/demo-inbox:
+    get:
+      tags:
+      - applications
+      summary: Demo Inbox
+      operationId: demo_inbox_api_v1_service_sessions__session_id__demo_inbox_get
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: session_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Session Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/InboxMessageOut'
+                title: Response Demo Inbox Api V1 Service Sessions  Session Id  Demo
+                  Inbox Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/service-sessions/{session_id}/submit:
+    post:
+      tags:
+      - applications
+      summary: Submit
+      operationId: submit_api_v1_service_sessions__session_id__submit_post
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: session_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Session Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubmitOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/service-sessions/{session_id}/cancel:
+    post:
+      tags:
+      - applications
+      summary: Cancel
+      operationId: cancel_api_v1_service_sessions__session_id__cancel_post
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: session_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Session Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceSessionOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/assist-sessions:
+    post:
+      tags:
+      - assist
+      summary: Create Session
+      operationId: create_session_api_v1_assist_sessions_post
+      security:
+      - HTTPBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAssistRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssistSessionOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      tags:
+      - assist
+      summary: List Sessions
+      operationId: list_sessions_api_v1_assist_sessions_get
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: scope
+        in: query
+        required: false
+        schema:
+          const: active
+          type: string
+          default: active
+          title: Scope
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ActiveAssistOut'
+                title: Response List Sessions Api V1 Assist Sessions Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/assist-sessions/{assist_id}:
+    get:
+      tags:
+      - assist
+      summary: Get Session
+      operationId: get_session_api_v1_assist_sessions__assist_id__get
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: assist_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Assist Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssistSessionOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/assist-sessions/{assist_id}/state:
+    get:
+      tags:
+      - assist
+      summary: Get State
+      operationId: get_state_api_v1_assist_sessions__assist_id__state_get
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: assist_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Assist Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SnapshotOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/assist-sessions/{assist_id}/invites:
+    post:
+      tags:
+      - assist
+      summary: Create Invite
+      operationId: create_invite_api_v1_assist_sessions__assist_id__invites_post
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: assist_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Assist Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InviteRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InviteOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/assist-sessions/{assist_id}/invites/{invite_id}:
+    delete:
+      tags:
+      - assist
+      summary: Revoke Invite
+      operationId: revoke_invite_api_v1_assist_sessions__assist_id__invites__invite_id__delete
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: assist_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Assist Id
+      - name: invite_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Invite Id
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/assist-invites/{token}:
+    get:
+      tags:
+      - assist
+      summary: Preview Invite
+      operationId: preview_invite_api_v1_assist_invites__token__get
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: token
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvitePreviewOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/assist-invites/{token}/accept:
+    post:
+      tags:
+      - assist
+      summary: Accept Invite
+      operationId: accept_invite_api_v1_assist_invites__token__accept_post
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: token
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcceptOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/assist-invites/{token}/decline:
+    post:
+      tags:
+      - assist
+      summary: Decline Invite
+      operationId: decline_invite_api_v1_assist_invites__token__decline_post
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: token
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeclineOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/help-callbacks:
+    get:
+      tags:
+      - assist
+      summary: List Callbacks
+      operationId: list_callbacks_api_v1_help_callbacks_get
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: as
+        in: query
+        required: false
+        schema:
+          enum:
+          - owner
+          - helper
+          type: string
+          default: owner
+          title: As
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/HelpCallbackOut'
+                title: Response List Callbacks Api V1 Help Callbacks Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/help-callbacks/{callback_id}/ready:
+    post:
+      tags:
+      - assist
+      summary: Helper Is Ready
+      operationId: helper_is_ready_api_v1_help_callbacks__callback_id__ready_post
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: callback_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Callback Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HelpCallbackOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/help-callbacks/{callback_id}/call:
+    post:
+      tags:
+      - assist
+      summary: Call Back
+      operationId: call_back_api_v1_help_callbacks__callback_id__call_post
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: callback_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Callback Id
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CallBackOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/help-callbacks/{callback_id}:
+    delete:
+      tags:
+      - assist
+      summary: Dismiss Callback
+      operationId: dismiss_callback_api_v1_help_callbacks__callback_id__delete
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: callback_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Callback Id
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/assist-sessions/{assist_id}/participants/{participant_id}/approve:
+    post:
+      tags:
+      - assist
+      summary: Approve
+      operationId: approve_api_v1_assist_sessions__assist_id__participants__participant_id__approve_post
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: assist_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Assist Id
+      - name: participant_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Participant Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssistSessionOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/assist-sessions/{assist_id}/participants/{participant_id}/reject:
+    post:
+      tags:
+      - assist
+      summary: Reject
+      operationId: reject_api_v1_assist_sessions__assist_id__participants__participant_id__reject_post
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: assist_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Assist Id
+      - name: participant_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Participant Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssistSessionOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/assist-sessions/{assist_id}/participants/{participant_id}:
+    delete:
+      tags:
+      - assist
+      summary: Remove
+      operationId: remove_api_v1_assist_sessions__assist_id__participants__participant_id__delete
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: assist_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Assist Id
+      - name: participant_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Participant Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssistSessionOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/assist-sessions/{assist_id}/leave:
+    post:
+      tags:
+      - assist
+      summary: Leave
+      operationId: leave_api_v1_assist_sessions__assist_id__leave_post
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: assist_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Assist Id
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/assist-sessions/{assist_id}/end:
+    post:
+      tags:
+      - assist
+      summary: End
+      operationId: end_api_v1_assist_sessions__assist_id__end_post
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: assist_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Assist Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SummaryOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/consultations:
+    get:
+      tags:
+      - assist
+      summary: List Consultations
+      operationId: list_consultations_api_v1_consultations_get
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: as
+        in: query
+        required: false
+        schema:
+          enum:
+          - owner
+          - helper
+          type: string
+          default: owner
+          title: As
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 20
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ConsultationItemOut'
+                title: Response List Consultations Api V1 Consultations Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/consultations/{assist_id}:
+    get:
+      tags:
+      - assist
+      summary: Get Consultation
+      operationId: get_consultation_api_v1_consultations__assist_id__get
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: assist_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Assist Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsultationOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/consultations/{assist_id}/replay:
+    get:
+      tags:
+      - assist
+      summary: Get Replay
+      operationId: get_replay_api_v1_consultations__assist_id__replay_get
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: assist_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Assist Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReplayOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/assist-sessions/{assist_id}/summary:
+    get:
+      tags:
+      - assist
+      summary: Summary
+      operationId: summary_api_v1_assist_sessions__assist_id__summary_get
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: assist_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Assist Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SummaryOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/dev/outbox:
+    get:
+      tags:
+      - notifications
+      summary: Dev Outbox
+      operationId: dev_outbox_api_v1_dev_outbox_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/BotMessageOut'
+                type: array
+                title: Response Dev Outbox Api V1 Dev Outbox Get
+      security:
+      - HTTPBearer: []
+  /api/v1/assist-sessions/{assist_id}/voice-token:
+    post:
+      tags:
+      - voice
+      summary: Voice Token
+      operationId: voice_token_api_v1_assist_sessions__assist_id__voice_token_post
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: assist_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Assist Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VoiceTokenOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/service-sessions/{service_session_id}/past-help:
+    get:
+      tags:
+      - voice
+      summary: Get Past Help
+      operationId: get_past_help_api_v1_service_sessions__service_session_id__past_help_get
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: service_session_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Service Session Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PastHelpOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/consultations/{assist_id}/recording:
+    get:
+      tags:
+      - voice
+      summary: Listen
+      operationId: listen_api_v1_consultations__assist_id__recording_get
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: assist_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Assist Id
+      - name: token
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '200':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - voice
+      summary: Delete Recording
+      operationId: delete_recording_api_v1_consultations__assist_id__recording_delete
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: assist_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Assist Id
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/assist-sessions/{assist_id}/operator-requests:
+    post:
+      tags:
+      - support_desk
+      summary: Request Operator
+      operationId: request_operator_api_v1_assist_sessions__assist_id__operator_requests_post
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: assist_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Assist Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OperatorRequestIn'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperatorRequestOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/service-sessions/{service_session_id}/operator-requests:
+    post:
+      tags:
+      - support_desk
+      summary: Request Operator For Application
+      operationId: request_operator_for_application_api_v1_service_sessions__service_session_id__operator_requests_post
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: service_session_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Service Session Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OperatorRequestIn'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestedSessionOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/assist-sessions/{assist_id}/operator-requests/current:
+    delete:
+      tags:
+      - support_desk
+      summary: Cancel Request
+      operationId: cancel_request_api_v1_assist_sessions__assist_id__operator_requests_current_delete
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: assist_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Assist Id
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/operator/requests:
+    get:
+      tags:
+      - support_desk
+      summary: Operator Queue
+      operationId: operator_queue_api_v1_operator_requests_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/QueueItemOut'
+                type: array
+                title: Response Operator Queue Api V1 Operator Requests Get
+      security:
+      - HTTPBearer: []
+  /api/v1/operator/requests/{request_id}/claim:
+    post:
+      tags:
+      - support_desk
+      summary: Claim
+      operationId: claim_api_v1_operator_requests__request_id__claim_post
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: request_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Request Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/max_assist__modules__support_desk__router__ClaimOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/operator/requests/{request_id}/complete:
+    post:
+      tags:
+      - support_desk
+      summary: Complete
+      operationId: complete_api_v1_operator_requests__request_id__complete_post
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: request_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Request Id
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/trusted-helpers:
+    get:
+      tags:
+      - trust
+      summary: My Helpers
+      operationId: my_helpers_api_v1_trusted_helpers_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/TrustedHelperOut'
+                type: array
+                title: Response My Helpers Api V1 Trusted Helpers Get
+      security:
+      - HTTPBearer: []
+  /api/v1/trusted-helpers/helping-for:
+    get:
+      tags:
+      - trust
+      summary: Helping For
+      operationId: helping_for_api_v1_trusted_helpers_helping_for_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/HelpingForOut'
+                type: array
+                title: Response Helping For Api V1 Trusted Helpers Helping For Get
+      security:
+      - HTTPBearer: []
+  /api/v1/trusted-helpers/{trusted_id}:
+    patch:
+      tags:
+      - trust
+      summary: Rename
+      operationId: rename_api_v1_trusted_helpers__trusted_id__patch
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: trusted_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Trusted Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RenameIn'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrustedHelperOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - trust
+      summary: Revoke
+      operationId: revoke_api_v1_trusted_helpers__trusted_id__delete
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: trusted_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Trusted Id
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/pairings:
+    post:
+      tags:
+      - trust
+      summary: Start Pairing
+      operationId: start_pairing_api_v1_pairings_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PairingIn'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PairingOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - HTTPBearer: []
+  /api/v1/pairings/{pairing_id}:
+    get:
+      tags:
+      - trust
+      summary: Get Pairing
+      operationId: get_pairing_api_v1_pairings__pairing_id__get
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: pairing_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Pairing Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PairingStateOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - trust
+      summary: Cancel
+      operationId: cancel_api_v1_pairings__pairing_id__delete
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: pairing_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Pairing Id
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/pairings/{pairing_id}/confirm:
+    post:
+      tags:
+      - trust
+      summary: Confirm
+      operationId: confirm_api_v1_pairings__pairing_id__confirm_post
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: pairing_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Pairing Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfirmIn'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrustedHelperOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/pairings/{pairing_id}/reject:
+    post:
+      tags:
+      - trust
+      summary: Reject
+      operationId: reject_api_v1_pairings__pairing_id__reject_post
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: pairing_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Pairing Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PairingStateOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/pairing-tokens/{token}:
+    get:
+      tags:
+      - trust
+      summary: Preview
+      operationId: preview_api_v1_pairing_tokens__token__get
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: token
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PairingPreviewOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/pairing-tokens/{token}/claim:
+    post:
+      tags:
+      - trust
+      summary: Claim
+      operationId: claim_api_v1_pairing_tokens__token__claim_post
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: token
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/max_assist__modules__trust__router__ClaimOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/service-sessions/{service_session_id}/ai-agent:
+    post:
+      tags:
+      - ai_assistant
+      summary: Call To Application
+      operationId: call_to_application_api_v1_service_sessions__service_session_id__ai_agent_post
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: service_session_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Service Session Id
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CalledOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/assist-sessions/{assist_id}/ai-agent:
+    post:
+      tags:
+      - ai_assistant
+      summary: Call To Session
+      operationId: call_to_session_api_v1_assist_sessions__assist_id__ai_agent_post
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: assist_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Assist Id
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssistSessionOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - ai_assistant
+      summary: Release
+      operationId: release_api_v1_assist_sessions__assist_id__ai_agent_delete
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: assist_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Assist Id
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/ai-turns:
+    post:
+      tags:
+      - ai_assistant
+      summary: Record Turn
+      operationId: record_turn_api_v1_ai_turns_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TurnIn'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TurnOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - HTTPBearer: []
+  /health:
+    get:
+      summary: Health
+      operationId: health_health_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  anyOf:
+                  - type: string
+                  - type: integer
+                type: object
+                title: Response Health Health Get
+components:
+  schemas:
+    AcceptOut:
+      properties:
+        assist_session_id:
+          type: string
+          format: uuid
+          title: Assist Session Id
+        participant_id:
+          type: string
+          format: uuid
+          title: Participant Id
+        status:
+          type: string
+          title: Status
+      type: object
+      required:
+      - assist_session_id
+      - participant_id
+      - status
+      title: AcceptOut
+    ActionView:
+      properties:
+        label:
+          type: string
+          title: Label
+        available:
+          type: boolean
+          title: Available
+        reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Reason
+      type: object
+      required:
+      - label
+      - available
+      title: ActionView
+    ActiveAssistOut:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        status:
+          type: string
+          title: Status
+        my_role:
+          type: string
+          title: My Role
+        my_status:
+          type: string
+          title: My Status
+        service_title:
+          type: string
+          title: Service Title
+        owner_display_name:
+          type: string
+          title: Owner Display Name
+        current_step:
+          $ref: '#/components/schemas/ShortStepOut'
+        total_steps:
+          type: integer
+          title: Total Steps
+      type: object
+      required:
+      - id
+      - status
+      - my_role
+      - my_status
+      - service_title
+      - owner_display_name
+      - current_step
+      - total_steps
+      title: ActiveAssistOut
+    AnnotationAuthorOut:
+      properties:
+        participant_id:
+          type: string
+          format: uuid
+          title: Participant Id
+        role:
+          type: string
+          title: Role
+        display_name:
+          type: string
+          title: Display Name
+      type: object
+      required:
+      - participant_id
+      - role
+      - display_name
+      title: AnnotationAuthorOut
+    AnnotationOut:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        kind:
+          type: string
+          title: Kind
+        element_id:
+          type: string
+          title: Element Id
+        label:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Label
+        author:
+          $ref: '#/components/schemas/AnnotationAuthorOut'
+        expires_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Expires At
+      type: object
+      required:
+      - id
+      - kind
+      - element_id
+      - label
+      - author
+      - expires_at
+      title: AnnotationOut
+    AssistSessionOut:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        status:
+          type: string
+          title: Status
+        service:
+          $ref: '#/components/schemas/max_assist__modules__assist__schemas__ServiceRefOut'
+        service_session_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Service Session Id
+        owner:
+          $ref: '#/components/schemas/PersonOut'
+        current_step:
+          anyOf:
+          - $ref: '#/components/schemas/StepOut'
+          - type: 'null'
+        total_steps:
+          type: integer
+          title: Total Steps
+        me:
+          $ref: '#/components/schemas/max_assist__modules__assist__schemas__MeOut'
+        participants:
+          items:
+            $ref: '#/components/schemas/ParticipantOut'
+          type: array
+          title: Participants
+        pending_invites:
+          anyOf:
+          - items:
+              $ref: '#/components/schemas/InviteRefOut'
+            type: array
+          - type: 'null'
+          title: Pending Invites
+        recording:
+          anyOf:
+          - $ref: '#/components/schemas/RecordingStateOut'
+          - type: 'null'
+        ws_url:
+          type: string
+          title: Ws Url
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        started_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Started At
+        ended_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Ended At
+        end_reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: End Reason
+      type: object
+      required:
+      - id
+      - status
+      - service
+      - service_session_id
+      - owner
+      - current_step
+      - total_steps
+      - me
+      - participants
+      - pending_invites
+      - recording
+      - ws_url
+      - created_at
+      - started_at
+      - ended_at
+      - end_reason
+      title: AssistSessionOut
+    BadgeOut:
+      properties:
+        label:
+          type: string
+          title: Label
+        verified:
+          type: boolean
+          title: Verified
+      type: object
+      required:
+      - label
+      - verified
+      title: BadgeOut
+    BotMessageOut:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        text:
+          type: string
+          title: Text
+        buttons:
+          items:
+            $ref: '#/components/schemas/ButtonOut'
+          type: array
+          title: Buttons
+      type: object
+      required:
+      - id
+      - created_at
+      - text
+      - buttons
+      title: BotMessageOut
+    ButtonOut:
+      properties:
+        text:
+          type: string
+          title: Text
+        start_param:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Start Param
+      type: object
+      required:
+      - text
+      - start_param
+      title: ButtonOut
+    CallAgainOut:
+      properties:
+        trusted_helper_id:
+          type: string
+          format: uuid
+          title: Trusted Helper Id
+        display_name:
+          type: string
+          title: Display Name
+      type: object
+      required:
+      - trusted_helper_id
+      - display_name
+      title: CallAgainOut
+    CallBackOut:
+      properties:
+        assist_session:
+          $ref: '#/components/schemas/AssistSessionOut'
+        invite:
+          $ref: '#/components/schemas/InviteOut'
+      type: object
+      required:
+      - assist_session
+      - invite
+      title: CallBackOut
+    CalledOut:
+      properties:
+        assist_session:
+          $ref: '#/components/schemas/AssistSessionOut'
+      type: object
+      required:
+      - assist_session
+      title: CalledOut
+    ChapterOut:
+      properties:
+        step_id:
+          type: string
+          title: Step Id
+        title:
+          type: string
+          title: Title
+        start_offset_ms:
+          type: integer
+          title: Start Offset Ms
+        duration_ms:
+          type: integer
+          title: Duration Ms
+        highlights:
+          type: integer
+          title: Highlights
+        confusions:
+          type: integer
+          title: Confusions
+        had_errors:
+          type: boolean
+          title: Had Errors
+      type: object
+      required:
+      - step_id
+      - title
+      - start_offset_ms
+      - duration_ms
+      - highlights
+      - confusions
+      - had_errors
+      title: ChapterOut
+    ClaimerOut:
+      properties:
+        display_name:
+          type: string
+          title: Display Name
+        photo_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Photo Url
+        max_username:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Max Username
+      type: object
+      required:
+      - display_name
+      - photo_url
+      - max_username
+      title: ClaimerOut
+    ConfirmIn:
+      properties:
+        alias:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Alias
+      type: object
+      title: ConfirmIn
+    ConfirmationCodeOut:
+      properties:
+        expires_at:
+          type: string
+          format: date-time
+          title: Expires At
+        resend_available_at:
+          type: string
+          format: date-time
+          title: Resend Available At
+      type: object
+      required:
+      - expires_at
+      - resend_available_at
+      title: ConfirmationCodeOut
+    ConsultationItemOut:
+      properties:
+        assist_session_id:
+          type: string
+          format: uuid
+          title: Assist Session Id
+        service:
+          $ref: '#/components/schemas/ServiceTitleOut'
+        status:
+          type: string
+          title: Status
+        end_reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: End Reason
+        started_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Started At
+        ended_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Ended At
+        duration_sec:
+          type: integer
+          title: Duration Sec
+        helpers:
+          items:
+            $ref: '#/components/schemas/HelperOut'
+          type: array
+          title: Helpers
+        steps_completed:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Steps Completed
+        total_steps:
+          type: integer
+          title: Total Steps
+        stopped_at_step:
+          anyOf:
+          - $ref: '#/components/schemas/StepOut'
+          - type: 'null'
+        service_session_status:
+          type: string
+          title: Service Session Status
+        recording:
+          anyOf:
+          - $ref: '#/components/schemas/RecordingStateOut'
+          - type: 'null'
+        actions:
+          $ref: '#/components/schemas/SummaryActionsOut'
+        my_role:
+          type: string
+          title: My Role
+        owner_display_name:
+          type: string
+          title: Owner Display Name
+        stats:
+          $ref: '#/components/schemas/StatsOut'
+      type: object
+      required:
+      - assist_session_id
+      - service
+      - status
+      - end_reason
+      - started_at
+      - ended_at
+      - duration_sec
+      - helpers
+      - steps_completed
+      - total_steps
+      - stopped_at_step
+      - service_session_status
+      - recording
+      - actions
+      - my_role
+      - owner_display_name
+      - stats
+      title: ConsultationItemOut
+    ConsultationOut:
+      properties:
+        assist_session_id:
+          type: string
+          format: uuid
+          title: Assist Session Id
+        service:
+          $ref: '#/components/schemas/ServiceTitleOut'
+        status:
+          type: string
+          title: Status
+        end_reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: End Reason
+        started_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Started At
+        ended_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Ended At
+        duration_sec:
+          type: integer
+          title: Duration Sec
+        helpers:
+          items:
+            $ref: '#/components/schemas/HelperOut'
+          type: array
+          title: Helpers
+        steps_completed:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Steps Completed
+        total_steps:
+          type: integer
+          title: Total Steps
+        stopped_at_step:
+          anyOf:
+          - $ref: '#/components/schemas/StepOut'
+          - type: 'null'
+        service_session_status:
+          type: string
+          title: Service Session Status
+        recording:
+          anyOf:
+          - $ref: '#/components/schemas/RecordingStateOut'
+          - type: 'null'
+        actions:
+          $ref: '#/components/schemas/SummaryActionsOut'
+        my_role:
+          type: string
+          title: My Role
+        owner_display_name:
+          type: string
+          title: Owner Display Name
+        stats:
+          $ref: '#/components/schemas/StatsOut'
+        chapters:
+          items:
+            $ref: '#/components/schemas/ChapterOut'
+          type: array
+          title: Chapters
+      type: object
+      required:
+      - assist_session_id
+      - service
+      - status
+      - end_reason
+      - started_at
+      - ended_at
+      - duration_sec
+      - helpers
+      - steps_completed
+      - total_steps
+      - stopped_at_step
+      - service_session_status
+      - recording
+      - actions
+      - my_role
+      - owner_display_name
+      - stats
+      - chapters
+      title: ConsultationOut
+    CreateAssistRequest:
+      properties:
+        service_session_id:
+          type: string
+          format: uuid
+          title: Service Session Id
+      type: object
+      required:
+      - service_session_id
+      title: CreateAssistRequest
+    CurrentStepOut:
+      properties:
+        id:
+          type: string
+          title: Id
+        index:
+          type: integer
+          title: Index
+        title:
+          type: string
+          title: Title
+      type: object
+      required:
+      - id
+      - index
+      - title
+      title: CurrentStepOut
+    CurrentStepView:
+      properties:
+        id:
+          type: string
+          title: Id
+        index:
+          type: integer
+          title: Index
+        title:
+          type: string
+          title: Title
+        description:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Description
+        operator_hint:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Operator Hint
+        elements:
+          items:
+            $ref: '#/components/schemas/ElementView'
+          type: array
+          title: Elements
+      type: object
+      required:
+      - id
+      - index
+      - title
+      - description
+      - operator_hint
+      - elements
+      title: CurrentStepView
+    DeclineOut:
+      properties:
+        help_callback_id:
+          type: string
+          format: uuid
+          title: Help Callback Id
+        owner:
+          $ref: '#/components/schemas/NameOut'
+      type: object
+      required:
+      - help_callback_id
+      - owner
+      title: DeclineOut
+    DevLoginRequest:
+      properties:
+        user_key:
+          type: string
+          title: User Key
+      type: object
+      required:
+      - user_key
+      title: DevLoginRequest
+    DevUserOut:
+      properties:
+        user_key:
+          type: string
+          title: User Key
+        display_name:
+          type: string
+          title: Display Name
+        role_hint:
+          type: string
+          title: Role Hint
+      type: object
+      required:
+      - user_key
+      - display_name
+      - role_hint
+      title: DevUserOut
+    ElementView:
+      properties:
+        id:
+          type: string
+          title: Id
+        type:
+          type: string
+          title: Type
+        label:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Label
+        hint:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Hint
+        placeholder:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Placeholder
+        unit:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Unit
+        text:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Text
+        style:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Style
+        required:
+          type: boolean
+          title: Required
+        privacy:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Privacy
+        options:
+          anyOf:
+          - items:
+              $ref: '#/components/schemas/Option'
+            type: array
+          - type: 'null'
+          title: Options
+        view:
+          anyOf:
+          - $ref: '#/components/schemas/ValueView'
+          - type: 'null'
+        rows:
+          anyOf:
+          - items:
+              $ref: '#/components/schemas/SummaryRow'
+            type: array
+          - type: 'null'
+          title: Rows
+        action:
+          anyOf:
+          - $ref: '#/components/schemas/ActionView'
+          - type: 'null'
+        operator_hint:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Operator Hint
+      type: object
+      required:
+      - id
+      - type
+      - label
+      - hint
+      - placeholder
+      - unit
+      - text
+      - style
+      - required
+      - privacy
+      - options
+      - view
+      - rows
+      - action
+      - operator_hint
+      title: ElementView
+    ErrorView:
+      properties:
+        element_id:
+          type: string
+          title: Element Id
+        code:
+          type: string
+          title: Code
+        message:
+          type: string
+          title: Message
+        details:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Details
+      type: object
+      required:
+      - element_id
+      - code
+      - message
+      - details
+      title: ErrorView
+    FieldErrorOut:
+      properties:
+        element_id:
+          type: string
+          title: Element Id
+        code:
+          type: string
+          title: Code
+        message:
+          type: string
+          title: Message
+        details:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Details
+      type: object
+      required:
+      - element_id
+      - code
+      - message
+      title: FieldErrorOut
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    HelpCallbackOut:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        status:
+          type: string
+          title: Status
+        owner:
+          $ref: '#/components/schemas/NameOut'
+        helper:
+          $ref: '#/components/schemas/NameOut'
+        service_session_id:
+          type: string
+          format: uuid
+          title: Service Session Id
+        service:
+          $ref: '#/components/schemas/ServiceTitleOut'
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        ready_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Ready At
+        expires_at:
+          type: string
+          format: date-time
+          title: Expires At
+      type: object
+      required:
+      - id
+      - status
+      - owner
+      - helper
+      - service_session_id
+      - service
+      - created_at
+      - ready_at
+      - expires_at
+      title: HelpCallbackOut
+    HelperNameOut:
+      properties:
+        display_name:
+          type: string
+          title: Display Name
+        role:
+          type: string
+          title: Role
+      type: object
+      required:
+      - display_name
+      - role
+      title: HelperNameOut
+    HelperOut:
+      properties:
+        display_name:
+          type: string
+          title: Display Name
+        role:
+          type: string
+          title: Role
+        badge:
+          anyOf:
+          - $ref: '#/components/schemas/BadgeOut'
+          - type: 'null'
+      type: object
+      required:
+      - display_name
+      - role
+      - badge
+      title: HelperOut
+    HelpingForOut:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        owner:
+          $ref: '#/components/schemas/OwnerOut'
+        active_assist_session_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Active Assist Session Id
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      type: object
+      required:
+      - id
+      - owner
+      - active_assist_session_id
+      - created_at
+      title: HelpingForOut
+    InboxMessageOut:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        text:
+          type: string
+          title: Text
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      type: object
+      required:
+      - id
+      - text
+      - created_at
+      title: InboxMessageOut
+    InviteOut:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        kind:
+          type: string
+          title: Kind
+        token:
+          type: string
+          title: Token
+        deep_link:
+          type: string
+          title: Deep Link
+        share_text:
+          type: string
+          title: Share Text
+        expires_at:
+          type: string
+          format: date-time
+          title: Expires At
+        delivery:
+          type: string
+          enum:
+          - share_required
+          - bot_message
+          title: Delivery
+      type: object
+      required:
+      - id
+      - kind
+      - token
+      - deep_link
+      - share_text
+      - expires_at
+      - delivery
+      title: InviteOut
+    InvitePreviewOut:
+      properties:
+        status:
+          type: string
+          enum:
+          - valid
+          - expired
+          - used
+          - declined
+          - revoked
+          - session_ended
+          title: Status
+        assist_session_id:
+          type: string
+          format: uuid
+          title: Assist Session Id
+        owner:
+          $ref: '#/components/schemas/OwnerOut'
+        service:
+          $ref: '#/components/schemas/ServiceTitleOut'
+        current_step:
+          $ref: '#/components/schemas/InviteStepOut'
+        is_owner:
+          type: boolean
+          title: Is Owner
+        you_are_trusted:
+          type: boolean
+          title: You Are Trusted
+        requires_owner_approval:
+          type: boolean
+          title: Requires Owner Approval
+        expires_at:
+          type: string
+          format: date-time
+          title: Expires At
+      type: object
+      required:
+      - status
+      - assist_session_id
+      - owner
+      - service
+      - current_step
+      - is_owner
+      - you_are_trusted
+      - requires_owner_approval
+      - expires_at
+      title: InvitePreviewOut
+    InviteRefOut:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        kind:
+          type: string
+          title: Kind
+        expires_at:
+          type: string
+          format: date-time
+          title: Expires At
+      type: object
+      required:
+      - id
+      - kind
+      - expires_at
+      title: InviteRefOut
+    InviteRequest:
+      properties:
+        kind:
+          type: string
+          enum:
+          - link
+          - trusted_call
+          title: Kind
+          default: link
+        trusted_helper_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Trusted Helper Id
+      type: object
+      title: InviteRequest
+    InviteStepOut:
+      properties:
+        index:
+          type: integer
+          title: Index
+        total:
+          type: integer
+          title: Total
+        title:
+          type: string
+          title: Title
+      type: object
+      required:
+      - index
+      - total
+      - title
+      title: InviteStepOut
+    MaxLoginRequest:
+      properties:
+        init_data:
+          type: string
+          title: Init Data
+      type: object
+      required:
+      - init_data
+      title: MaxLoginRequest
+    MeCounters:
+      properties:
+        drafts:
+          type: integer
+          title: Drafts
+        active_assist_sessions:
+          type: integer
+          title: Active Assist Sessions
+        trusted_helpers:
+          type: integer
+          title: Trusted Helpers
+        helping_for:
+          type: integer
+          title: Helping For
+      type: object
+      required:
+      - drafts
+      - active_assist_sessions
+      - trusted_helpers
+      - helping_for
+      title: MeCounters
+    NameOut:
+      properties:
+        display_name:
+          type: string
+          title: Display Name
+      type: object
+      required:
+      - display_name
+      title: NameOut
+    NavigationRequest:
+      properties:
+        action:
+          type: string
+          enum:
+          - next
+          - back
+          - goto
+          title: Action
+        step_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Step Id
+      type: object
+      required:
+      - action
+      title: NavigationRequest
+    OperatorRequestIn:
+      properties:
+        topic:
+          type: string
+          enum:
+          - dont_understand
+          - form_error
+          - other
+          title: Topic
+        summary:
+          anyOf:
+          - type: string
+            maxLength: 500
+          - type: 'null'
+          title: Summary
+      type: object
+      required:
+      - topic
+      title: OperatorRequestIn
+    OperatorRequestOut:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        status:
+          type: string
+          title: Status
+        topic:
+          type: string
+          title: Topic
+        position:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Position
+      type: object
+      required:
+      - id
+      - status
+      - topic
+      - position
+      title: OperatorRequestOut
+    OperatorRequestStateOut:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        status:
+          type: string
+          title: Status
+        topic:
+          type: string
+          title: Topic
+        position:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Position
+      type: object
+      required:
+      - id
+      - status
+      - topic
+      - position
+      title: OperatorRequestStateOut
+    Option:
+      properties:
+        value:
+          type: string
+          title: Value
+        label:
+          type: string
+          title: Label
+      type: object
+      required:
+      - value
+      - label
+      title: Option
+    OwnerOut:
+      properties:
+        display_name:
+          type: string
+          title: Display Name
+        photo_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Photo Url
+      type: object
+      required:
+      - display_name
+      - photo_url
+      title: OwnerOut
+    PairingIn:
+      properties:
+        method:
+          type: string
+          enum:
+          - qr
+          - link
+          title: Method
+          default: qr
+      type: object
+      title: PairingIn
+    PairingOut:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        method:
+          type: string
+          title: Method
+        status:
+          type: string
+          title: Status
+        token:
+          type: string
+          title: Token
+        qr_payload:
+          type: string
+          title: Qr Payload
+        deep_link:
+          type: string
+          title: Deep Link
+        expires_at:
+          type: string
+          format: date-time
+          title: Expires At
+      type: object
+      required:
+      - id
+      - method
+      - status
+      - token
+      - qr_payload
+      - deep_link
+      - expires_at
+      title: PairingOut
+    PairingPreviewOut:
+      properties:
+        status:
+          type: string
+          enum:
+          - valid
+          - expired
+          - used
+          - self
+          - already_trusted
+          title: Status
+        owner:
+          $ref: '#/components/schemas/OwnerOut'
+      type: object
+      required:
+      - status
+      - owner
+      title: PairingPreviewOut
+    PairingStateOut:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        status:
+          type: string
+          title: Status
+        expires_at:
+          type: string
+          format: date-time
+          title: Expires At
+        claimed_by:
+          anyOf:
+          - $ref: '#/components/schemas/ClaimerOut'
+          - type: 'null'
+      type: object
+      required:
+      - id
+      - status
+      - expires_at
+      - claimed_by
+      title: PairingStateOut
+    ParticipantOut:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        role:
+          type: string
+          title: Role
+        status:
+          type: string
+          title: Status
+        display_name:
+          type: string
+          title: Display Name
+        photo_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Photo Url
+        badge:
+          anyOf:
+          - $ref: '#/components/schemas/BadgeOut'
+          - type: 'null'
+        online:
+          type: boolean
+          title: Online
+      type: object
+      required:
+      - id
+      - role
+      - status
+      - display_name
+      - photo_url
+      - badge
+      - online
+      title: ParticipantOut
+    PastHelpFragmentOut:
+      properties:
+        assist_session_id:
+          type: string
+          format: uuid
+          title: Assist Session Id
+        date:
+          type: string
+          format: date-time
+          title: Date
+        helpers:
+          items:
+            $ref: '#/components/schemas/HelperNameOut'
+          type: array
+          title: Helpers
+        has_audio:
+          type: boolean
+          title: Has Audio
+        audio_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Audio Url
+        audio_start_ms:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Audio Start Ms
+        audio_end_ms:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Audio End Ms
+        replay_from_ms:
+          type: integer
+          title: Replay From Ms
+        replay_to_ms:
+          type: integer
+          title: Replay To Ms
+        highlights:
+          type: integer
+          title: Highlights
+        confusions:
+          type: integer
+          title: Confusions
+      type: object
+      required:
+      - assist_session_id
+      - date
+      - helpers
+      - has_audio
+      - audio_url
+      - audio_start_ms
+      - audio_end_ms
+      - replay_from_ms
+      - replay_to_ms
+      - highlights
+      - confusions
+      title: PastHelpFragmentOut
+    PastHelpOut:
+      properties:
+        steps:
+          additionalProperties:
+            items:
+              $ref: '#/components/schemas/PastHelpFragmentOut'
+            type: array
+          type: object
+          title: Steps
+      type: object
+      required:
+      - steps
+      title: PastHelpOut
+    PersonOut:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        display_name:
+          type: string
+          title: Display Name
+        photo_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Photo Url
+      type: object
+      required:
+      - id
+      - display_name
+      - photo_url
+      title: PersonOut
+    QueueContextOut:
+      properties:
+        owner_display_name:
+          type: string
+          title: Owner Display Name
+        service_title:
+          type: string
+          title: Service Title
+        step:
+          anyOf:
+          - $ref: '#/components/schemas/QueueStepOut'
+          - type: 'null'
+        error_codes:
+          items:
+            type: string
+          type: array
+          title: Error Codes
+        ai_summary:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Ai Summary
+      type: object
+      required:
+      - owner_display_name
+      - service_title
+      - step
+      - error_codes
+      - ai_summary
+      title: QueueContextOut
+    QueueItemOut:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        status:
+          type: string
+          title: Status
+        source:
+          type: string
+          title: Source
+        topic:
+          type: string
+          title: Topic
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        waiting_sec:
+          type: integer
+          title: Waiting Sec
+        context:
+          $ref: '#/components/schemas/QueueContextOut'
+      type: object
+      required:
+      - id
+      - status
+      - source
+      - topic
+      - created_at
+      - waiting_sec
+      - context
+      title: QueueItemOut
+    QueueStepOut:
+      properties:
+        index:
+          type: integer
+          title: Index
+        total:
+          type: integer
+          title: Total
+        title:
+          type: string
+          title: Title
+      type: object
+      required:
+      - index
+      - total
+      - title
+      title: QueueStepOut
+    RecordingStateOut:
+      properties:
+        status:
+          type: string
+          title: Status
+        duration_ms:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Duration Ms
+      type: object
+      required:
+      - status
+      - duration_ms
+      title: RecordingStateOut
+    RenameIn:
+      properties:
+        alias:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Alias
+      type: object
+      title: RenameIn
+    ReplayElementOut:
+      properties:
+        id:
+          type: string
+          title: Id
+        type:
+          type: string
+          title: Type
+        label:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Label
+        options:
+          anyOf:
+          - items:
+              $ref: '#/components/schemas/Option'
+            type: array
+          - type: 'null'
+          title: Options
+      type: object
+      required:
+      - id
+      - type
+      - label
+      - options
+      title: ReplayElementOut
+    ReplayEventOut:
+      properties:
+        seq:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Seq
+        offset_ms:
+          type: integer
+          title: Offset Ms
+        type:
+          type: string
+          title: Type
+        actor_participant_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Actor Participant Id
+        payload:
+          additionalProperties: true
+          type: object
+          title: Payload
+      type: object
+      required:
+      - seq
+      - offset_ms
+      - type
+      - actor_participant_id
+      - payload
+      title: ReplayEventOut
+    ReplayOut:
+      properties:
+        assist_session_id:
+          type: string
+          format: uuid
+          title: Assist Session Id
+        service:
+          $ref: '#/components/schemas/max_assist__modules__assist__schemas__ServiceRefOut'
+        service_version:
+          type: integer
+          title: Service Version
+        started_at:
+          type: string
+          format: date-time
+          title: Started At
+        duration_ms:
+          type: integer
+          title: Duration Ms
+        steps:
+          items:
+            $ref: '#/components/schemas/ReplayStepOut'
+          type: array
+          title: Steps
+        participants:
+          items:
+            $ref: '#/components/schemas/ReplayParticipantOut'
+          type: array
+          title: Participants
+        recording:
+          anyOf:
+          - $ref: '#/components/schemas/ReplayRecordingOut'
+          - type: 'null'
+        events:
+          items:
+            $ref: '#/components/schemas/ReplayEventOut'
+          type: array
+          title: Events
+      type: object
+      required:
+      - assist_session_id
+      - service
+      - service_version
+      - started_at
+      - duration_ms
+      - steps
+      - participants
+      - recording
+      - events
+      title: ReplayOut
+    ReplayParticipantOut:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        role:
+          type: string
+          title: Role
+        display_name:
+          type: string
+          title: Display Name
+      type: object
+      required:
+      - id
+      - role
+      - display_name
+      title: ReplayParticipantOut
+    ReplayRecordingOut:
+      properties:
+        status:
+          type: string
+          title: Status
+        url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Url
+        offset_ms:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Offset Ms
+        duration_ms:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Duration Ms
+      type: object
+      required:
+      - status
+      - url
+      - offset_ms
+      - duration_ms
+      title: ReplayRecordingOut
+    ReplayStepOut:
+      properties:
+        id:
+          type: string
+          title: Id
+        index:
+          type: integer
+          title: Index
+        title:
+          type: string
+          title: Title
+        elements:
+          items:
+            $ref: '#/components/schemas/ReplayElementOut'
+          type: array
+          title: Elements
+      type: object
+      required:
+      - id
+      - index
+      - title
+      - elements
+      title: ReplayStepOut
+    RequestedSessionOut:
+      properties:
+        assist_session:
+          $ref: '#/components/schemas/AssistSessionOut'
+        request:
+          $ref: '#/components/schemas/OperatorRequestOut'
+      type: object
+      required:
+      - assist_session
+      - request
+      title: RequestedSessionOut
+    ReviewLoginRequest:
+      properties:
+        login:
+          type: string
+          title: Login
+        password:
+          type: string
+          title: Password
+      type: object
+      required:
+      - login
+      - password
+      title: ReviewLoginRequest
+    ServiceSessionOut:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        service:
+          $ref: '#/components/schemas/max_assist__modules__applications__schemas__ServiceRefOut'
+        status:
+          type: string
+          title: Status
+        current_step:
+          $ref: '#/components/schemas/CurrentStepOut'
+        total_steps:
+          type: integer
+          title: Total Steps
+        steps:
+          items:
+            $ref: '#/components/schemas/StepRefOut'
+          type: array
+          title: Steps
+        values:
+          additionalProperties: true
+          type: object
+          title: Values
+        errors:
+          items:
+            $ref: '#/components/schemas/FieldErrorOut'
+          type: array
+          title: Errors
+        active_assist_session_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Active Assist Session Id
+        application_number:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Application Number
+        version:
+          type: integer
+          title: Version
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+        submitted_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Submitted At
+      type: object
+      required:
+      - id
+      - service
+      - status
+      - current_step
+      - total_steps
+      - steps
+      - values
+      - errors
+      - application_number
+      - version
+      - created_at
+      - updated_at
+      - submitted_at
+      title: ServiceSessionOut
+    ServiceSummaryOut:
+      properties:
+        code:
+          type: string
+          title: Code
+        version:
+          type: integer
+          title: Version
+        title:
+          type: string
+          title: Title
+        short_description:
+          type: string
+          title: Short Description
+        estimated_minutes:
+          type: integer
+          title: Estimated Minutes
+        steps_count:
+          type: integer
+          title: Steps Count
+        is_demo:
+          type: boolean
+          title: Is Demo
+      type: object
+      required:
+      - code
+      - version
+      - title
+      - short_description
+      - estimated_minutes
+      - steps_count
+      - is_demo
+      title: ServiceSummaryOut
+    ServiceTitleOut:
+      properties:
+        title:
+          type: string
+          title: Title
+      type: object
+      required:
+      - title
+      title: ServiceTitleOut
+    ServiceView:
+      properties:
+        code:
+          type: string
+          title: Code
+        version:
+          type: integer
+          title: Version
+        title:
+          type: string
+          title: Title
+        total_steps:
+          type: integer
+          title: Total Steps
+      type: object
+      required:
+      - code
+      - version
+      - title
+      - total_steps
+      title: ServiceView
+    ShortStepOut:
+      properties:
+        index:
+          type: integer
+          title: Index
+        title:
+          type: string
+          title: Title
+      type: object
+      required:
+      - index
+      - title
+      title: ShortStepOut
+    SnapshotOut:
+      properties:
+        service:
+          $ref: '#/components/schemas/ServiceView'
+        steps:
+          items:
+            $ref: '#/components/schemas/StepView'
+          type: array
+          title: Steps
+        current_step:
+          $ref: '#/components/schemas/CurrentStepView'
+        errors:
+          items:
+            $ref: '#/components/schemas/ErrorView'
+          type: array
+          title: Errors
+        service_session_status:
+          type: string
+          title: Service Session Status
+        last_seq:
+          type: integer
+          title: Last Seq
+        session:
+          $ref: '#/components/schemas/AssistSessionOut'
+        annotations:
+          items:
+            $ref: '#/components/schemas/AnnotationOut'
+          type: array
+          title: Annotations
+        operator_request:
+          anyOf:
+          - $ref: '#/components/schemas/OperatorRequestStateOut'
+          - type: 'null'
+      type: object
+      required:
+      - service
+      - steps
+      - current_step
+      - errors
+      - service_session_status
+      - last_seq
+      - session
+      - annotations
+      - operator_request
+      title: SnapshotOut
+    StaffOut:
+      properties:
+        role:
+          type: string
+          title: Role
+        organization:
+          type: string
+          title: Organization
+        position:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Position
+        verified:
+          type: boolean
+          title: Verified
+      type: object
+      required:
+      - role
+      - organization
+      - position
+      - verified
+      title: StaffOut
+    StartSessionRequest:
+      properties:
+        service_code:
+          type: string
+          title: Service Code
+      type: object
+      required:
+      - service_code
+      title: StartSessionRequest
+    StatsOut:
+      properties:
+        highlights:
+          type: integer
+          title: Highlights
+        confusions:
+          type: integer
+          title: Confusions
+      type: object
+      required:
+      - highlights
+      - confusions
+      title: StatsOut
+    StepOut:
+      properties:
+        id:
+          type: string
+          title: Id
+        index:
+          type: integer
+          title: Index
+        title:
+          type: string
+          title: Title
+      type: object
+      required:
+      - id
+      - index
+      - title
+      title: StepOut
+    StepRefOut:
+      properties:
+        id:
+          type: string
+          title: Id
+        index:
+          type: integer
+          title: Index
+        title:
+          type: string
+          title: Title
+        status:
+          type: string
+          enum:
+          - completed
+          - current
+          - upcoming
+          title: Status
+      type: object
+      required:
+      - id
+      - index
+      - title
+      - status
+      title: StepRefOut
+    StepView:
+      properties:
+        id:
+          type: string
+          title: Id
+        index:
+          type: integer
+          title: Index
+        title:
+          type: string
+          title: Title
+        status:
+          type: string
+          enum:
+          - completed
+          - current
+          - upcoming
+          title: Status
+      type: object
+      required:
+      - id
+      - index
+      - title
+      - status
+      title: StepView
+    SubmitOut:
+      properties:
+        status:
+          type: string
+          title: Status
+        application_number:
+          type: string
+          title: Application Number
+        submitted_at:
+          type: string
+          format: date-time
+          title: Submitted At
+      type: object
+      required:
+      - status
+      - application_number
+      - submitted_at
+      title: SubmitOut
+    SubmitRequest:
+      properties:
+        confirmation_code:
+          type: string
+          title: Confirmation Code
+      type: object
+      required:
+      - confirmation_code
+      title: SubmitRequest
+    SummaryActionsOut:
+      properties:
+        can_continue:
+          type: boolean
+          title: Can Continue
+        can_call_again:
+          items:
+            $ref: '#/components/schemas/CallAgainOut'
+          type: array
+          title: Can Call Again
+      type: object
+      required:
+      - can_continue
+      - can_call_again
+      title: SummaryActionsOut
+    SummaryOut:
+      properties:
+        assist_session_id:
+          type: string
+          format: uuid
+          title: Assist Session Id
+        service:
+          $ref: '#/components/schemas/ServiceTitleOut'
+        status:
+          type: string
+          title: Status
+        end_reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: End Reason
+        started_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Started At
+        ended_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Ended At
+        duration_sec:
+          type: integer
+          title: Duration Sec
+        helpers:
+          items:
+            $ref: '#/components/schemas/HelperOut'
+          type: array
+          title: Helpers
+        steps_completed:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Steps Completed
+        total_steps:
+          type: integer
+          title: Total Steps
+        stopped_at_step:
+          anyOf:
+          - $ref: '#/components/schemas/StepOut'
+          - type: 'null'
+        service_session_status:
+          type: string
+          title: Service Session Status
+        recording:
+          anyOf:
+          - $ref: '#/components/schemas/RecordingStateOut'
+          - type: 'null'
+        actions:
+          $ref: '#/components/schemas/SummaryActionsOut'
+      type: object
+      required:
+      - assist_session_id
+      - service
+      - status
+      - end_reason
+      - started_at
+      - ended_at
+      - duration_sec
+      - helpers
+      - steps_completed
+      - total_steps
+      - stopped_at_step
+      - service_session_status
+      - recording
+      - actions
+      title: SummaryOut
+    SummaryRow:
+      properties:
+        element_id:
+          type: string
+          title: Element Id
+        step_id:
+          type: string
+          title: Step Id
+        label:
+          type: string
+          title: Label
+        view:
+          $ref: '#/components/schemas/ValueView'
+      type: object
+      required:
+      - element_id
+      - step_id
+      - label
+      - view
+      title: SummaryRow
+    TokenOut:
+      properties:
+        access_token:
+          type: string
+          title: Access Token
+        expires_at:
+          type: string
+          format: date-time
+          title: Expires At
+        user:
+          $ref: '#/components/schemas/UserOut'
+      type: object
+      required:
+      - access_token
+      - expires_at
+      - user
+      title: TokenOut
+    ToolUseIn:
+      properties:
+        name:
+          type: string
+          enum:
+          - highlight
+          - point
+          - call_operator
+          title: Name
+        element_id:
+          anyOf:
+          - type: string
+            maxLength: 100
+          - type: 'null'
+          title: Element Id
+      type: object
+      required:
+      - name
+      title: ToolUseIn
+    TrustedHelperOut:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        helper:
+          $ref: '#/components/schemas/PersonOut'
+        alias:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Alias
+        verification_method:
+          type: string
+          title: Verification Method
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        last_helped_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Last Helped At
+      type: object
+      required:
+      - id
+      - helper
+      - alias
+      - verification_method
+      - created_at
+      - last_helped_at
+      title: TrustedHelperOut
+    TurnIn:
+      properties:
+        trigger:
+          type: string
+          enum:
+          - greeting
+          - question
+          - validation_failed
+          - confusion
+          - step_changed
+          title: Trigger
+        reply_text:
+          type: string
+          maxLength: 1000
+          title: Reply Text
+        tools:
+          items:
+            $ref: '#/components/schemas/ToolUseIn'
+          type: array
+          maxItems: 10
+          title: Tools
+        guard_result:
+          type: string
+          enum:
+          - passed
+          - rejected
+          title: Guard Result
+        latency_ms:
+          type: integer
+          maximum: 600000.0
+          minimum: 0.0
+          title: Latency Ms
+        provider:
+          type: string
+          maxLength: 100
+          title: Provider
+      type: object
+      required:
+      - trigger
+      - reply_text
+      - guard_result
+      - latency_ms
+      - provider
+      title: TurnIn
+    TurnOut:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+      type: object
+      required:
+      - id
+      title: TurnOut
+    UpdateFieldsRequest:
+      properties:
+        values:
+          additionalProperties: true
+          type: object
+          title: Values
+        version:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Version
+      type: object
+      required:
+      - values
+      title: UpdateFieldsRequest
+    UserOut:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        display_name:
+          type: string
+          title: Display Name
+        photo_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Photo Url
+        staff:
+          anyOf:
+          - $ref: '#/components/schemas/StaffOut'
+          - type: 'null'
+      type: object
+      required:
+      - id
+      - display_name
+      - photo_url
+      - staff
+      title: UserOut
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+        input:
+          title: Input
+        ctx:
+          type: object
+          title: Context
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
+    ValueView:
+      properties:
+        state:
+          type: string
+          enum:
+          - filled
+          - empty
+          - hidden
+          title: State
+        value:
+          title: Value
+        locked:
+          type: boolean
+          title: Locked
+          default: false
+      type: object
+      required:
+      - state
+      title: ValueView
+    VoiceTokenOut:
+      properties:
+        url:
+          type: string
+          title: Url
+        room:
+          type: string
+          title: Room
+        token:
+          type: string
+          title: Token
+        expires_at:
+          type: string
+          format: date-time
+          title: Expires At
+      type: object
+      required:
+      - url
+      - room
+      - token
+      - expires_at
+      title: VoiceTokenOut
+    max_assist__modules__applications__schemas__ServiceRefOut:
+      properties:
+        code:
+          type: string
+          title: Code
+        version:
+          type: integer
+          title: Version
+        title:
+          type: string
+          title: Title
+      type: object
+      required:
+      - code
+      - version
+      - title
+      title: ServiceRefOut
+    max_assist__modules__assist__schemas__MeOut:
+      properties:
+        participant_id:
+          type: string
+          format: uuid
+          title: Participant Id
+        role:
+          type: string
+          title: Role
+        status:
+          type: string
+          title: Status
+        capabilities:
+          items:
+            type: string
+          type: array
+          title: Capabilities
+      type: object
+      required:
+      - participant_id
+      - role
+      - status
+      - capabilities
+      title: MeOut
+    max_assist__modules__assist__schemas__ServiceRefOut:
+      properties:
+        code:
+          type: string
+          title: Code
+        title:
+          type: string
+          title: Title
+      type: object
+      required:
+      - code
+      - title
+      title: ServiceRefOut
+    max_assist__modules__identity__schemas__MeOut:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        first_name:
+          type: string
+          title: First Name
+        last_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Last Name
+        display_name:
+          type: string
+          title: Display Name
+        photo_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Photo Url
+        staff:
+          anyOf:
+          - $ref: '#/components/schemas/StaffOut'
+          - type: 'null'
+        recording_consent:
+          type: boolean
+          title: Recording Consent
+        counters:
+          $ref: '#/components/schemas/MeCounters'
+      type: object
+      required:
+      - id
+      - first_name
+      - last_name
+      - display_name
+      - photo_url
+      - staff
+      - recording_consent
+      - counters
+      title: MeOut
+    max_assist__modules__support_desk__router__ClaimOut:
+      properties:
+        assist_session_id:
+          type: string
+          format: uuid
+          title: Assist Session Id
+        participant_id:
+          type: string
+          format: uuid
+          title: Participant Id
+      type: object
+      required:
+      - assist_session_id
+      - participant_id
+      title: ClaimOut
+    max_assist__modules__trust__router__ClaimOut:
+      properties:
+        pairing_id:
+          type: string
+          format: uuid
+          title: Pairing Id
+        status:
+          type: string
+          title: Status
+      type: object
+      required:
+      - pairing_id
+      - status
+      title: ClaimOut
+  securitySchemes:
+    HTTPBearer:
+      type: http
+      scheme: bearer

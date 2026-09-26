@@ -17,11 +17,12 @@ import { AppIcon, AppInput } from '../components/UiPrimitives';
 
 interface S7ConfirmationProps {
   session: ServiceSession;
+  onRegisterBack?: (handler: (() => void) | null) => void;
   onBack: (session: ServiceSession) => void;
   onSubmitted: (result: SubmitResult) => void;
 }
 
-export function S7Confirmation({ session, onBack, onSubmitted }: S7ConfirmationProps) {
+export function S7Confirmation({ session, onRegisterBack, onBack, onSubmitted }: S7ConfirmationProps) {
   const queryClient = useQueryClient();
   const toast = useToast();
   const [code, setCode] = useState('');
@@ -52,6 +53,11 @@ export function S7Confirmation({ session, onBack, onSubmitted }: S7ConfirmationP
     setScreenCaptureProtection(true);
     return () => setScreenCaptureProtection(false);
   }, []);
+
+  useEffect(() => {
+    onRegisterBack?.(() => { void goBack(); });
+    return () => onRegisterBack?.(null);
+  }, [onRegisterBack, session.id]);
 
   useEffect(() => {
     if (!inbox.isSuccess || messages.length || codeRequestedFor.current === session.id) return;
@@ -117,11 +123,8 @@ export function S7Confirmation({ session, onBack, onSubmitted }: S7ConfirmationP
           onChange={(event) => setCode(event.target.value.replace(/\D/g, ''))}
         />
       </label>
-      <Flex gap={12} className="form-actions screen-actions--row">
-        <Button size="small" variant="secondary" disabled={busy} onClick={() => void goBack()}>
-          Назад
-        </Button>
-        <Button size="small" disabled={busy || code.length !== 4} onClick={() => void sendApplication()}>
+      <Flex gap={12} className="form-actions form-actions--single">
+        <Button size="small" stretched disabled={busy || code.length !== 4} onClick={() => void sendApplication()}>
           Отправить заявление
         </Button>
       </Flex>

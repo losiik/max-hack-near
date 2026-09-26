@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     # у platform-api2 сертификат Минцифры, которого нет в доверенных ни в Windows, ни в образе
     max_api_base: str = "https://platform-api.max.ru"
     init_data_max_age_seconds: int = 86400
+    # вход для автоматической проверки жюри; пока пароль не задан, вход закрыт
+    review_login: str = "review"
+    review_password: str = ""
 
     cleanup_enabled: bool = True
     cleanup_interval_minutes: int = 60

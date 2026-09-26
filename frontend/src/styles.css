@@ -157,7 +157,7 @@ button.ui-list-row:disabled { cursor: default; opacity: 0.55; }
 .ui-segmented { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; padding: 4px; border-radius: 14px; background: color-mix(in srgb, var(--app-line) 72%, var(--app-bg)); }
 .ui-segmented button { min-height: 44px; padding: 0 10px; border: 0; border-radius: 10px; color: var(--app-text-2); background: transparent; font-size: 16px; font-weight: 500; }
 .ui-segmented button.is-active { color: var(--app-text); background: var(--app-surface); font-weight: 600; }
-.ui-tabbar { position: sticky; z-index: 18; bottom: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: auto; padding: 6px 8px max(10px, env(safe-area-inset-bottom)); border-top: 1px solid var(--app-line); background: color-mix(in srgb, var(--app-surface) 94%, transparent); backdrop-filter: blur(16px); }
+.ui-tabbar { position: sticky; z-index: 18; bottom: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: auto; padding: 6px 8px max(10px, env(safe-area-inset-bottom)); border-top: 1px solid var(--app-line); background: color-mix(in srgb, var(--app-surface) 94%, transparent); backdrop-filter: blur(16px); }
 .ui-tabbar button { display: flex; min-height: 48px; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 4px 0; border: 0; border-radius: 10px; color: var(--app-text-2); background: transparent; font-size: 13px; }
 .ui-tabbar .app-icon { width: 22px; height: 22px; }
 .ui-tabbar button.is-active { color: var(--app-blue); font-weight: 600; }
@@ -174,9 +174,12 @@ button.ui-list-row:disabled { cursor: default; opacity: 0.55; }
 .home-hero__copy h1 { font-size: 24px; line-height: 1.2; }
 .home-hero__copy p { color: var(--app-text-2); font-size: 16px; line-height: 1.4; }
 .home-hero__copy button { width: auto; }
-.home-hero__art { position: relative; display: grid; width: 108px; height: 108px; flex: 0 0 108px; place-items: center; border-radius: 50%; background: color-mix(in srgb, var(--app-blue) 12%, transparent); }
-.home-hero__art .app-icon { width: 64px; height: 64px; padding: 13px; border-radius: 12px; color: var(--app-text); background: var(--app-surface); }
-.home-hero__art i { position: absolute; right: 8px; bottom: 13px; width: 18px; height: 18px; border-radius: 50%; background: #ff8a3d; }
+.home-hero__art { position: relative; display: grid; width: 108px; height: 108px; flex: 0 0 108px; place-items: center; align-self: center; border-radius: 50%; background: color-mix(in srgb, var(--app-blue) 12%, transparent); }
+.home-hero__art .app-icon { width: 64px; height: 64px; padding: 15px; border-radius: 14px; color: var(--app-text); background: var(--app-surface); }
+.home-hero__art i { position: absolute; right: 7px; bottom: 10px; width: 20px; height: 20px; border-radius: 50%; background: #ff8a3d; }
+.services-screen .screen-intro { margin-bottom: 4px; }
+.services-list { margin-top: 4px; }
+.form-actions--single { display: flex; }
 .home-section { display: flex; flex-direction: column; gap: 8px; }
 .active-assist-card__title { display: flex; align-items: center; gap: 8px; font-size: 17px; font-weight: 600; }
 .callback-card, .callback-card__actions { display: flex; flex-direction: column; gap: 10px; }
@@ -406,6 +409,10 @@ button.ui-list-row:disabled { cursor: default; opacity: 0.55; }
 .submitted-number { align-self: center; padding: 8px 14px; border-radius: 10px; background: var(--app-surface); font-size: 18px; font-weight: 600; }
 .loading-copy, .muted-text { color: var(--app-text-2); }
 .screen-center { min-height: 52svh; justify-content: center; text-align: center; }
+.app-error-screen { padding: 24px 16px; }
+.app-error-details { width: 100%; max-width: 520px; color: var(--app-text-2); text-align: left; }
+.app-error-details summary { cursor: pointer; text-align: center; }
+.app-error-details pre { max-height: 220px; margin-top: 8px; padding: 10px; overflow: auto; border-radius: 10px; background: var(--app-surface); font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; }
 .loading-mark { width: 32px; height: 32px; border-radius: 50%; background: var(--app-blue); opacity: 0.2; animation: breathe 1.2s ease-in-out infinite; }
 .choice-button { width: 100%; justify-content: space-between; text-align: left; }
 .choice-button small { opacity: 0.65; }

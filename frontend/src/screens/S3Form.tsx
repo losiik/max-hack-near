@@ -25,6 +25,7 @@ type SaveState = 'saved' | 'saving' | 'error';
 interface S3FormProps {
   definition: ServiceDefinition;
   initialSession: ServiceSession;
+  onRegisterBack?: (handler: (() => void) | null) => void;
   onSessionChange: (session: ServiceSession) => void;
   onConfirmation: (session: ServiceSession) => void;
   assist?: { id: string; status: string; helpers: number; connection: string; recording: boolean; digitalEmployee: boolean } | null;
@@ -34,7 +35,7 @@ interface S3FormProps {
   onReleaseDigitalEmployee?: () => void;
 }
 
-export function S3Form({ definition, initialSession, onSessionChange, onConfirmation, assist, onNeedHelp, onOpenWaiting, onEndAssist, onReleaseDigitalEmployee }: S3FormProps) {
+export function S3Form({ definition, initialSession, onRegisterBack, onSessionChange, onConfirmation, assist, onNeedHelp, onOpenWaiting, onEndAssist, onReleaseDigitalEmployee }: S3FormProps) {
   const queryClient = useQueryClient();
   const [session, setSession] = useState(initialSession);
   const [values, setValues] = useState(initialSession.values);
@@ -138,6 +139,11 @@ export function S3Form({ definition, initialSession, onSessionChange, onConfirma
     }
   }
 
+  useEffect(() => {
+    onRegisterBack?.(session.current_step.index > 1 ? () => { void navigate('back'); } : null);
+    return () => onRegisterBack?.(null);
+  }, [onRegisterBack, session.current_step.index]);
+
   if (!currentStep) return null;
 
   return (
@@ -195,9 +201,8 @@ export function S3Form({ definition, initialSession, onSessionChange, onConfirma
         {saveState === 'saving' ? 'Сохраняем…' : saveState === 'error' ? 'Изменения не сохранены' : 'Сохранено'}
       </Typography.Text>
 
-      <Flex gap={8} className="form-actions">
-        <Button size="small" variant="secondary" disabled={session.current_step.index === 1} onClick={() => void navigate('back')}>Назад</Button>
-        <Button size="small" onClick={() => void navigate('next')}>Далее</Button>
+      <Flex gap={8} className="form-actions form-actions--single">
+        <Button size="small" stretched onClick={() => void navigate('next')}>Далее</Button>
       </Flex>
       {confirmReleaseAgent && <ConfirmDialog title="Отпустить цифрового сотрудника?" description="Он выйдет из встречи и перестанет слушать вопрос. Позвать снова можно позже." confirmLabel="Отпустить" destructive onCancel={() => setConfirmReleaseAgent(false)} onConfirm={() => { setConfirmReleaseAgent(false); onReleaseDigitalEmployee?.(); }} />}
       {confirmEndAssist && <ConfirmDialog title="Завершить помощь?" description="Помощники отключатся от заявления и разговора." confirmLabel="Завершить" destructive onCancel={() => setConfirmEndAssist(false)} onConfirm={() => { setConfirmEndAssist(false); onEndAssist?.(); }} />}

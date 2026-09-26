@@ -1,8 +1,10 @@
+import hmac
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from max_assist.config import settings
-from max_assist.errors import AppError, Forbidden, NotFound
+from max_assist.errors import AppError, Forbidden, NotFound, Unauthorized
 from max_assist.modules.identity.max_init_data import parse_init_data
 from max_assist.modules.identity.models import StaffProfile, User
 from max_assist.utils import now
@@ -87,6 +89,28 @@ async def dev_login(session: AsyncSession, user_key: str) -> User:
     if staff is not None and user.staff is None:
         user.staff = StaffProfile(verified_at=now(), **staff)
 
+    user.last_seen_at = now()
+    await session.commit()
+    return user
+
+
+REVIEW_KEY = "review"
+# у входа нет ограничения по числу попыток, поэтому короткий пароль не принимаем
+REVIEW_PASSWORD_MIN_LENGTH = 16
+
+
+async def review_login(session: AsyncSession, login: str, password: str) -> User:
+    if len(settings.review_password) < REVIEW_PASSWORD_MIN_LENGTH:
+        raise Forbidden("Вход для проверки отключён")
+    right_login = hmac.compare_digest(login.encode(), settings.review_login.encode())
+    right_password = hmac.compare_digest(password.encode(), settings.review_password.encode())
+    if not (right_login and right_password):
+        raise Unauthorized("Неверный логин или пароль")
+
+    user = await session.scalar(select(User).where(User.dev_key == REVIEW_KEY))
+    if user is None:
+        user = User(dev_key=REVIEW_KEY, first_name="Проверка", last_name="Жюри", staff=None)
+        session.add(user)
     user.last_seen_at = now()
     await session.commit()
     return user

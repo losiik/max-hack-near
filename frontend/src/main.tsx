@@ -6,12 +6,13 @@ import '@maxhub/max-ui/dist/styles.css';
 import './styles.css';
 import App from './App';
 import { queryClient } from './app/queryClient';
+import { AppErrorBoundary } from './components/AppErrorBoundary';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <MaxUI>
-        <App />
+        <AppErrorBoundary><App /></AppErrorBoundary>
       </MaxUI>
     </QueryClientProvider>
   </StrictMode>,

@@ -1,0 +1,187 @@
+# DATA-API 1.0
+# Токенов и паролей здесь нет: доступ для роли user передаётся организаторам отдельно.
+# Токен для роли user выдаёт POST /api/v1/auth/review-login, тестовые данные — test-data/review.json
+
+schemaVersion: "1.0"
+
+solution:
+  name: "Рядом"
+  teamId: "<team id>"
+
+api:
+  baseUrl: "https://max-hackathon.explainlaw.ru"
+  openapi: "./openapi.yaml"
+  defaultHeaders:
+    Accept: "application/json"
+
+checks:
+  - id: "health"
+    name: "Сервис доступен"
+    description: "Backend отвечает, база и голосовой сервер подключены"
+    method: "GET"
+    path: "/health"
+    role: "public"
+    expected:
+      statusCodes: [200]
+      contentType: "application/json"
+      requiredFields: ["status", "db", "livekit"]
+    timeoutMs: 5000
+    repeatable: true
+
+  - id: "me"
+    name: "Профиль пользователя"
+    method: "GET"
+    path: "/api/v1/me"
+    role: "user"
+    expected:
+      statusCodes: [200]
+      contentType: "application/json"
+      requiredFields: ["id", "display_name", "recording_consent"]
+    timeoutMs: 5000
+    repeatable: true
+
+  - id: "services"
+    name: "Каталог услуг"
+    method: "GET"
+    path: "/api/v1/services"
+    role: "user"
+    expected:
+      statusCodes: [200]
+      contentType: "application/json"
+      bodySchema:
+        type: "array"
+        minItems: 1
+        items:
+          type: "object"
+          required: ["code", "title", "steps_count"]
+    timeoutMs: 5000
+    repeatable: true
+
+  - id: "start-application"
+    name: "Начать заявление на компенсацию ЖКУ"
+    description: "Если черновик этой услуги уже есть, возвращается он с кодом 200"
+    method: "POST"
+    path: "/api/v1/service-sessions"
+    role: "user"
+    request:
+      headers:
+        Content-Type: "application/json"
+      body:
+        service_code: "housing_compensation"
+    expected:
+      statusCodes: [200, 201]
+      contentType: "application/json"
+      requiredFields: ["id", "status", "current_step", "values", "version"]
+    timeoutMs: 5000
+    repeatable: true
+    extract:
+      applicationId: "$.id"
+
+  - id: "fill-step"
+    name: "Заполнить первый шаг формы"
+    method: "PATCH"
+    path: "/api/v1/service-sessions/{session_id}/fields"
+    role: "user"
+    dependsOn: ["start-application"]
+    request:
+      path:
+        session_id: "${applicationId}"
+      headers:
+        Content-Type: "application/json"
+      body:
+        values:
+          benefit_category: "pensioner"
+          benefit_reason: "certificate"
+    expected:
+      statusCodes: [200]
+      contentType: "application/json"
+      requiredFields: ["id", "values", "errors"]
+    timeoutMs: 5000
+    repeatable: true
+
+  - id: "read-application"
+    name: "Прочитать заявление"
+    method: "GET"
+    path: "/api/v1/service-sessions/{session_id}"
+    role: "user"
+    dependsOn: ["fill-step"]
+    request:
+      path:
+        session_id: "${applicationId}"
+    expected:
+      statusCodes: [200]
+      contentType: "application/json"
+      requiredFields: ["id", "status", "current_step", "steps", "values"]
+    timeoutMs: 5000
+    repeatable: true
+
+  - id: "recording-consent"
+    name: "Согласие на запись разговора"
+    description: "Без него позвать помощь нельзя; повторный вызов ничего не меняет"
+    method: "POST"
+    path: "/api/v1/me/recording-consent"
+    role: "user"
+    expected:
+      statusCodes: [204]
+    timeoutMs: 5000
+    repeatable: true
+
+  - id: "start-help"
+    name: "Начать совместное заполнение"
+    description: "Создаёт сессию помощи, в которую можно позвать близкого, оператора или цифрового сотрудника"
+    method: "POST"
+    path: "/api/v1/assist-sessions"
+    role: "user"
+    dependsOn: ["start-application", "recording-consent"]
+    request:
+      headers:
+        Content-Type: "application/json"
+      body:
+        service_session_id: "${applicationId}"
+    expected:
+      statusCodes: [201]
+      contentType: "application/json"
+      requiredFields: ["id", "status", "service_session_id", "participants"]
+    timeoutMs: 5000
+    repeatable: false
+    extract:
+      assistId: "$.id"
+
+  - id: "read-help"
+    name: "Прочитать сессию помощи"
+    method: "GET"
+    path: "/api/v1/assist-sessions/{assist_id}"
+    role: "user"
+    dependsOn: ["start-help"]
+    request:
+      path:
+        assist_id: "${assistId}"
+    expected:
+      statusCodes: [200]
+      contentType: "application/json"
+      requiredFields: ["id", "status", "owner", "me"]
+    timeoutMs: 5000
+    repeatable: true
+
+cleanup:
+  - id: "end-help"
+    method: "POST"
+    path: "/api/v1/assist-sessions/{assist_id}/end"
+    role: "user"
+    request:
+      path:
+        assist_id: "${assistId}"
+    expected:
+      statusCodes: [200, 404, 409]
+    timeoutMs: 5000
+
+  - id: "delete-application"
+    method: "DELETE"
+    path: "/api/v1/service-sessions/{session_id}"
+    role: "user"
+    request:
+      path:
+        session_id: "${applicationId}"
+    expected:
+      statusCodes: [204, 404]
+    timeoutMs: 5000

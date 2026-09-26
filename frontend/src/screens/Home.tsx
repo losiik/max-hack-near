@@ -39,6 +39,7 @@ import {
 interface HomeProps {
   user: AuthUser;
   launchIntent: LaunchIntent;
+  onOpenServices: () => void;
   onOpenService: (service: ServiceSummary, draft?: ServiceSession) => void;
   onOpenOperatorQueue?: () => void;
   onOpenTrustedHelpers: () => void;
@@ -60,6 +61,7 @@ function sessionStatus(session: ServiceSession): string {
 export function Home({
   user,
   launchIntent,
+  onOpenServices,
   onOpenService,
   onOpenOperatorQueue,
   onOpenTrustedHelpers,
@@ -152,18 +154,15 @@ export function Home({
             Пошагово проведём по форме, а если что-то непонятно — можно позвать
             помощь.
           </p>
-          {firstService && (
-            <Button
-              size="small"
-              onClick={() => onOpenService(firstService, firstDraft)}
-            >
-              {firstDraft ? "Продолжить" : "Начать"}
-              <AppIcon name="arrow-right" />
-            </Button>
-          )}
+          <Button
+            size="small"
+            onClick={() => firstDraft && firstService ? onOpenService(firstService, firstDraft) : onOpenServices()}
+          >
+            {firstDraft ? "Продолжить" : "Начать"}
+            <AppIcon name="arrow-right" />
+          </Button>
         </div>
         <div className="home-hero__art" aria-hidden="true">
-          <span />
           <AppIcon name="document" />
           <i />
         </div>
@@ -348,30 +347,6 @@ export function Home({
           )}
         </div>
       </section>
-
-      {services.data && services.data.length > 1 && (
-        <section className="home-section">
-          <SectionHeading title="Все услуги" />
-          <div className="ui-list">
-            {services.data.map((service) => {
-              const draft = draftFor(service.code);
-              return (
-                <ListRow
-                  key={service.code}
-                  icon="document"
-                  title={service.title}
-                  subtitle={
-                    draft
-                      ? `Черновик · шаг ${draft.current_step.index} из ${service.steps_count}`
-                      : `≈ ${service.estimated_minutes} минут · ${service.steps_count} шагов`
-                  }
-                  onClick={() => onOpenService(service, draft)}
-                />
-              );
-            })}
-          </div>
-        </section>
-      )}
 
       {sessions.data && sessions.data.length > 0 && (
         <section className="home-section applications-section">

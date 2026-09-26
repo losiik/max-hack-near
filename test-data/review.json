@@ -1,0 +1,50 @@
+{
+  "description": "Данные для автоматической проверки API по DATA-API.yaml. Все значения вымышленные",
+  "roles": {
+    "user": {
+      "login_endpoint": "POST /api/v1/auth/review-login",
+      "login_body": {
+        "login": "review",
+        "password": "передаётся организаторам отдельно"
+      },
+      "token_from": "$.access_token",
+      "header": "Authorization: Bearer <access_token>",
+      "token_ttl_hours": 12,
+      "display_name": "Проверка Ж."
+    }
+  },
+  "service": {
+    "code": "housing_compensation",
+    "title": "Компенсация расходов на оплату ЖКУ",
+    "steps": {
+      "category": {
+        "benefit_category": "pensioner",
+        "benefit_reason": "certificate"
+      },
+      "address": {
+        "region": "spb",
+        "address": "Невский проспект, 1, кв. 2",
+        "ownership_type": "owner",
+        "living_area": 54.5
+      },
+      "family": {
+        "full_name": "Петрова Людмила Ивановна",
+        "birth_date": "1956-03-12",
+        "snils": "123-456-789 00",
+        "family_size": 2
+      },
+      "income": {
+        "income_type": "pension",
+        "monthly_income": 18400
+      },
+      "payment": {
+        "payment_method": "post",
+        "post_office_index": "190000"
+      },
+      "review": {
+        "consent_personal_data": true
+      }
+    }
+  },
+  "cleanup": "После проверок сессия помощи завершается, заявление удаляется. Повторный запуск сценария безопасен: если черновик остался, POST /api/v1/service-sessions вернёт его с кодом 200"
+}

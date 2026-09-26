@@ -85,6 +85,48 @@ async def test_dev_endpoints_are_closed_outside_dev(client, monkeypatch):
     assert dev_login.status_code == 403
 
 
+REVIEW_PASSWORD = "long-review-password-for-tests"
+
+
+async def review_login(client, password=REVIEW_PASSWORD, login="review"):
+    return await client.post("/api/v1/auth/review-login", json={"login": login, "password": password})
+
+
+async def test_review_login_is_closed_without_password(client, monkeypatch):
+    monkeypatch.setattr(settings, "review_password", "")
+    closed = await review_login(client, password="")
+
+    monkeypatch.setattr(settings, "review_password", "short")
+    too_short = await review_login(client, password="short")
+
+    assert closed.status_code == 403
+    assert too_short.status_code == 403
+
+
+async def test_review_login_checks_login_and_password(client, monkeypatch):
+    monkeypatch.setattr(settings, "review_password", REVIEW_PASSWORD)
+
+    wrong_password = await review_login(client, password="long-but-wrong-password")
+    wrong_login = await review_login(client, login="ludmila")
+
+    assert wrong_password.status_code == 401
+    assert wrong_login.status_code == 401
+
+
+async def test_review_login_works_in_production(client, monkeypatch):
+    await forget_user(dev_key="review")
+    monkeypatch.setattr(settings, "review_password", REVIEW_PASSWORD)
+    monkeypatch.setattr(settings, "app_env", "prod")
+
+    first = await review_login(client)
+    again = await review_login(client)
+    me = await client.get("/api/v1/me", headers={"Authorization": f"Bearer {first.json()['access_token']}"})
+
+    assert first.status_code == 200
+    assert again.json()["user"]["id"] == first.json()["user"]["id"]
+    assert me.json()["display_name"] == "Проверка Ж."
+
+
 async def test_me_counts_drafts(client):
     headers = await login(client, "anna")
     await start_session(client, headers)

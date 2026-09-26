@@ -64,6 +64,8 @@ services:
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://localhost:3000}
       MAX_BOT_TOKEN: ${MAX_BOT_TOKEN:-}
       MAX_BOT_USERNAME: ${MAX_BOT_USERNAME:-t562_hakaton_max_bot}
+      REVIEW_LOGIN: ${REVIEW_LOGIN:-review}
+      REVIEW_PASSWORD: ${REVIEW_PASSWORD:-}
       YANDEX_API_KEY: ${YANDEX_API_KEY:-}
       YANDEX_FOLDER_ID: ${YANDEX_FOLDER_ID:-}
       LIVEKIT_URL: ${LIVEKIT_URL:-ws://localhost:7880}

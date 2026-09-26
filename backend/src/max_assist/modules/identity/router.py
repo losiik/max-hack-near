@@ -12,6 +12,7 @@ from max_assist.modules.identity.schemas import (
     MaxLoginRequest,
     MeCounters,
     MeOut,
+    ReviewLoginRequest,
     StaffOut,
     TokenOut,
     UserOut,
@@ -32,6 +33,13 @@ async def login_with_max(payload: MaxLoginRequest, session: DbSession) -> TokenO
 @router.post("/auth/dev-login", response_model=TokenOut)
 async def dev_login(payload: DevLoginRequest, session: DbSession) -> TokenOut:
     user = await service.dev_login(session, payload.user_key)
+    token, expires_at = create_access_token(user.id)
+    return TokenOut(access_token=token, expires_at=expires_at, user=UserOut.of(user))
+
+
+@router.post("/auth/review-login", response_model=TokenOut)
+async def review_login(payload: ReviewLoginRequest, session: DbSession) -> TokenOut:
+    user = await service.review_login(session, payload.login, payload.password)
     token, expires_at = create_access_token(user.id)
     return TokenOut(access_token=token, expires_at=expires_at, user=UserOut.of(user))
 

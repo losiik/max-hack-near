@@ -86,9 +86,10 @@ export function IconButton({ label, icon, tone = 'default', ...props }: { label:
   return <button type="button" className={`ui-icon-button ui-icon-button--${tone}`} aria-label={label} title={label} {...props}><AppIcon name={icon} /></button>;
 }
 
-export function BottomNav({ active, onHome, onHistory, onHelpers }: { active: 'home' | 'history' | 'helpers'; onHome: () => void; onHistory: () => void; onHelpers: () => void }) {
+export function BottomNav({ active, onHome, onServices, onHistory, onHelpers }: { active: 'home' | 'services' | 'history' | 'helpers'; onHome: () => void; onServices: () => void; onHistory: () => void; onHelpers: () => void }) {
   const items: Array<{ id: typeof active; label: string; icon: AppIconName; action: () => void }> = [
     { id: 'home', label: 'Главная', icon: 'home', action: onHome },
+    { id: 'services', label: 'Услуги', icon: 'document', action: onServices },
     { id: 'history', label: 'История', icon: 'history', action: onHistory },
     { id: 'helpers', label: 'Близкие', icon: 'people', action: onHelpers },
   ];

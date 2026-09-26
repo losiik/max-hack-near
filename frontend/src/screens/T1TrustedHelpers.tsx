@@ -1,7 +1,7 @@
 import { Button, Flex, Typography } from '@maxhub/max-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { confirmPairing, createPairing, getPairing, renameTrustedHelper, revokeTrustedHelper, type TrustedHelper } from '../api/client';
-import { queryKeys, trustedHelpersQuery } from '../api/queries';
+import { confirmPairing, createPairing, getPairing, getTrustedHelpers, renameTrustedHelper, revokeTrustedHelper, type TrustedHelper } from '../api/client';
+import { queryKeys, queryPolicy } from '../api/queries';
 import { useToast } from '../components/ToastProvider';
 import { ScreenIntro } from '../components/ScreenIntro';
 import { QRCodeSVG } from 'qrcode.react';
@@ -16,7 +16,13 @@ export function T1TrustedHelpers() {
   const [rename, setRename] = useState<TrustedHelper | null>(null);
   const [alias, setAlias] = useState('');
   const [revoke, setRevoke] = useState<TrustedHelper | null>(null);
-  const helpers = useQuery({ queryKey: queryKeys.trustedHelpers(), queryFn: trustedHelpersQuery });
+  const helpers = useQuery({
+    queryKey: queryKeys.trustedHelpers(),
+    // MAX may remount the webview while the section is opening. This read-only
+    // request must finish instead of being aborted by a transient observer.
+    queryFn: () => getTrustedHelpers(),
+    ...queryPolicy,
+  });
   const pairing = useMutation({ mutationFn: (method: 'qr' | 'link') => createPairing(method) });
   const status = useQuery({ queryKey: ['pairing', pairing.data?.id], queryFn: ({ signal }) => getPairing(pairing.data!.id, signal), enabled: Boolean(pairing.data?.id), refetchInterval: 2_000 });
   const confirm = useMutation({ mutationFn: () => confirmPairing(pairing.data!.id), onSuccess: () => void helpers.refetch() });

@@ -14,6 +14,11 @@ class DevLoginRequest(BaseModel):
     user_key: str
 
 
+class ReviewLoginRequest(BaseModel):
+    login: str
+    password: str
+
+
 class StaffOut(BaseModel):
     role: str
     organization: str
