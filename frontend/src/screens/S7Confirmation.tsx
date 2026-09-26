@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Button, Flex, Input, Typography } from '@maxhub/max-ui';
+import { Button, Flex, Typography } from '@maxhub/max-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ApiError,
@@ -13,6 +13,7 @@ import { cacheSession, demoInboxQuery, queryKeys } from '../api/queries';
 import { setScreenCaptureProtection } from '../platform/maxBridge';
 import { ScreenIntro } from '../components/ScreenIntro';
 import { useToast } from '../components/ToastProvider';
+import { AppIcon, AppInput } from '../components/UiPrimitives';
 
 interface S7ConfirmationProps {
   session: ServiceSession;
@@ -97,17 +98,17 @@ export function S7Confirmation({ session, onBack, onSubmitted }: S7ConfirmationP
   }
 
   return (
-    <Flex direction="column" gap={12}>
-      <ScreenIntro eyebrow="Шаг 7 из 7" title="Подтверждение и отправка" description="Проверьте данные и подтвердите отправку заявления." />
+    <Flex direction="column" gap={12} className="confirmation-screen">
+      <ScreenIntro eyebrow="Шаг 7 из 7" title="Подтверждение и отправка" description="Подтвердите заявление кодом из SMS." />
+      <div className="progress-track"><span style={{ width: '100%' }} /></div>
       <div className="warning-note">
-        Мы отправили код в SMS. Никому не сообщайте его — ни помощнику, ни сотруднику МФЦ.
+        <AppIcon name="warning" /><span>Мы отправили код в SMS. Никому не сообщайте его — ни помощнику, ни сотруднику МФЦ.</span>
       </div>
       {messages.length > 0 && <Button size="small" variant="ghost" onClick={() => toast(messages.at(-1)?.text ?? '')}>Показать демо-SMS</Button>}
       {(error || inbox.error) && <div className="notice notice--error">{error || (inbox.error instanceof Error ? inbox.error.message : 'Не удалось получить код')}</div>}
       <label className="input-field">
         <span>Код из SMS</span>
-        <Input
-          size="medium"
+        <AppInput
           value={code}
           maxLength={4}
           inputMode="numeric"
@@ -116,7 +117,7 @@ export function S7Confirmation({ session, onBack, onSubmitted }: S7ConfirmationP
           onChange={(event) => setCode(event.target.value.replace(/\D/g, ''))}
         />
       </label>
-      <Flex gap={12} className="form-actions">
+      <Flex gap={12} className="form-actions screen-actions--row">
         <Button size="small" variant="secondary" disabled={busy} onClick={() => void goBack()}>
           Назад
         </Button>

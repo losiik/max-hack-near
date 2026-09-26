@@ -101,7 +101,15 @@ async def listen(assist_id: UUID, user: Listener, db: DbSession) -> FileResponse
     path = recordings.file_of(recording)
     if path is None or not path.is_file():
         raise NotFound("Файл записи не найден")
-    return FileResponse(path, media_type="audio/ogg")
+    return FileResponse(
+        path,
+        media_type="audio/ogg",
+        headers={
+            "Accept-Ranges": "bytes",
+            "Cache-Control": "private, no-store",
+            "Content-Disposition": "inline",
+        },
+    )
 
 
 @router.delete("/consultations/{assist_id}/recording", status_code=204)

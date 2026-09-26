@@ -1,15 +1,16 @@
 import { useEffect, type ReactNode } from 'react';
-import { Flex, Typography } from '@maxhub/max-ui';
 import { showBackButton } from '../platform/maxBridge';
 import { ToastProvider } from '../components/ToastProvider';
+import { AppIcon } from '../components/UiPrimitives';
 
 interface AppShellProps {
   children: ReactNode;
   title?: string;
   onBack?: () => void;
+  hideHeader?: boolean;
 }
 
-export function AppShell({ children, title = 'Рядом', onBack }: AppShellProps) {
+export function AppShell({ children, title = 'Рядом', onBack, hideHeader = false }: AppShellProps) {
   useEffect(() => {
     if (!onBack) return undefined;
     return showBackButton(onBack);
@@ -18,15 +19,12 @@ export function AppShell({ children, title = 'Рядом', onBack }: AppShellPro
   return (
     <ToastProvider><div className="app-shell">
       <div className="app-shell__panel">
-        <Flex direction="column" gap={12}>
-          <header className="app-shell__header">
-            <div className="brand-lockup" aria-label={title}>
-              <span className="brand-lockup__mark">Р</span>
-              <Typography.Text className="brand-lockup__name">{title}</Typography.Text>
-            </div>
-          </header>
-          <main>{children}</main>
-        </Flex>
+        {!hideHeader && <header className="app-topbar">
+          {onBack ? <button type="button" className="ui-icon-button" aria-label="Назад" title="Назад" onClick={onBack}><AppIcon name="back" /></button> : <span className="app-topbar__spacer" />}
+          <div className="app-topbar__title">{title}</div>
+          <span className="app-topbar__spacer" />
+        </header>}
+        <main className="app-shell__content">{children}</main>
       </div>
     </div></ToastProvider>
   );

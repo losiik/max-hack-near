@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 
 from max_assist.utils import now
 
-KINDS = {"highlight", "frame", "circle", "arrow"}
+KINDS = {"highlight"}
 HIGHLIGHT_TTL = timedelta(seconds=15)
 LABEL_LIMIT = 80
 MAX_PER_AUTHOR = 5

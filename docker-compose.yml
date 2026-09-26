@@ -145,7 +145,7 @@ services:
     environment:
       EGRESS_CONFIG_FILE: /etc/egress.yaml
     volumes:
-      - ./livekit/egress.yaml:/etc/egress.yaml:ro
+      - ${LIVEKIT_EGRESS_CONFIG_FILE:-./livekit/egress.yaml}:/etc/egress.yaml:ro
       - ./recordings:/out
     depends_on:
       - redis

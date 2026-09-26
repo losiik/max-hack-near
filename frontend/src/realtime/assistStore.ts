@@ -202,7 +202,7 @@ export const useAssistStore = create<AssistRealtimeState>((set, get) => ({
       const currentStep = message.payload.current_step as ProjectedState['current_step'] | undefined;
       const errors = (message.payload.errors as FieldError[] | undefined) ?? snapshot.errors;
       const steps = (message.payload.steps as ProjectedState['steps'] | undefined) ?? snapshot.steps;
-      set({ snapshot: { ...snapshot, current_step: currentStep ?? snapshot.current_step, errors, steps, annotations: message.event === 'navigation.step_changed' ? [] : snapshot.annotations }, pointer: message.event === 'navigation.step_changed' ? null : state.pointer, lastSeq: nextSeq });
+      set({ snapshot: { ...snapshot, current_step: currentStep ?? snapshot.current_step, errors, steps, annotations: message.event === 'navigation.step_changed' ? [] : snapshot.annotations }, pointer: message.event === 'navigation.step_changed' ? null : state.pointer, confusionElementId: message.event === 'navigation.step_changed' ? null : state.confusionElementId, lastSeq: nextSeq });
       return;
     }
     if (message.event === 'form.validation_failed') {

@@ -1,6 +1,7 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Button, Flex, Typography } from '@maxhub/max-ui';
+import { AppIcon } from './UiPrimitives';
 
 export function AppDialog({ title, children, onClose, labelledBy = 'app-dialog-title' }: { title: string; children: ReactNode; onClose: () => void; labelledBy?: string }) {
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -21,14 +22,13 @@ export function AppDialog({ title, children, onClose, labelledBy = 'app-dialog-t
     window.addEventListener('keydown', onKeyDown);
     return () => { window.clearTimeout(timer); window.removeEventListener('keydown', onKeyDown); previouslyFocused?.focus(); };
   }, [onClose]);
-  const portalTarget = document.querySelector<HTMLElement>('[class*="MaxUI__"]') ?? document.body;
+  const portalTarget = document.querySelector<HTMLElement>('.app-shell') ?? document.querySelector<HTMLElement>('[class*="MaxUI__"]') ?? document.body;
   return createPortal(
     <div className="app-dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <section ref={dialogRef} className="app-dialog" role="dialog" aria-modal="true" aria-labelledby={labelledBy}>
         <Flex direction="column" gap={12}>
-          <Typography.Title id={labelledBy}>{title}</Typography.Title>
+          <header className="app-dialog__header"><h2 id={labelledBy}>{title}</h2><button ref={closeRef} type="button" className="ui-icon-button" aria-label="Закрыть диалог" onClick={onClose}><AppIcon name="x" /></button></header>
           {children}
-          <button ref={closeRef} className="visually-hidden" aria-label="Закрыть диалог" onClick={onClose} />
         </Flex>
       </section>
     </div>, portalTarget,

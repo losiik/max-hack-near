@@ -18,6 +18,7 @@ import { VoiceControl } from '../components/VoiceControl';
 import { PastHelpBanner } from '../components/PastHelpBanner';
 import { AppDialog, ConfirmDialog } from '../components/AppDialog';
 import { InlineAction } from '../components/InlineAction';
+import { AppIcon, PersonRow } from '../components/UiPrimitives';
 
 type SaveState = 'saved' | 'saving' | 'error';
 
@@ -116,6 +117,7 @@ export function S3Form({ definition, initialSession, onSessionChange, onConfirma
   };
 
   const currentStep = definition.steps.find((step) => step.id === session.current_step.id);
+  const activeHelper = snapshot?.session.participants.find((participant) => participant.role !== 'owner' && participant.status === 'active');
   const confusionTargets = currentStep?.elements.filter((element) => {
     if (!element.label || ['info', 'summary', 'action'].includes(element.type)) return false;
     const condition = element.visible_if;
@@ -154,10 +156,9 @@ export function S3Form({ definition, initialSession, onSessionChange, onConfirma
       <section className={`assist-bar assist-bar--${assist ? assist.status : 'idle'}`}>
         {assist ? (
           <Flex direction="column" gap={8}>
-            <Flex align="center" gap={8}><StatusMark tone={assist.status === 'active' ? 'positive' : 'attention'} /><Typography.Label>{assist.status === 'waiting' ? 'Помощь ожидает подключения' : 'Помощник рядом'}</Typography.Label></Flex>
-            {assist.status === 'waiting' ? <Typography.Text>Ссылка отправлена. Можно продолжать оформление.</Typography.Text> : assist.helpers > 0 ? <Typography.Text>Помощников рядом: {assist.helpers}</Typography.Text> : <><Typography.Text>Помощник вышел</Typography.Text><Typography.Text className="muted-text">Сейчас к заявлению никто не подключён.</Typography.Text></>}
+            {assist.status === 'waiting' ? <div className="assist-bar__heading"><StatusMark tone="attention" /><div><strong>Ждём помощника</strong><span>Ссылка отправлена. Можно продолжать оформление.</span></div></div> : activeHelper ? <PersonRow name={activeHelper.display_name} meta={activeHelper.badge?.label ?? 'Помощник рядом'} photoUrl={activeHelper.photo_url} online={activeHelper.online} tone={activeHelper.role === 'ai_agent' ? 'agent' : 'blue'} /> : <div className="assist-bar__heading"><StatusMark tone="attention" /><div><strong>Помощник вышел</strong><span>Сейчас к заявлению никто не подключён.</span></div></div>}
             {assist.status === 'active' && <VoiceControl sessionId={assist.id} role="owner" />}
-            {assist.status === 'active' && assist.recording && <Typography.Text className="recording-state">● Идёт запись</Typography.Text>}
+            {assist.status === 'active' && assist.recording && <div className="recording-state"><span className="recording-dot" />Идёт запись</div>}
             {assist.status === 'active' && assist.digitalEmployee && <><Typography.Text>Цифровой сотрудник рядом — можно задать вопрос голосом.</Typography.Text><InlineAction title="Закончить разговор с агентом" action="Отпустить" variant="destructive" onClick={() => setConfirmReleaseAgent(true)} /></>}
             {assist.connection === 'reconnecting' && <Typography.Text className="assist-bar__state">Восстанавливаем соединение…</Typography.Text>}
             {assist.status === 'waiting' && <InlineAction title="Ожидание помощи" description="Можно управлять приглашением." action="Управлять" variant="secondary" onClick={onOpenWaiting} />}
@@ -173,7 +174,8 @@ export function S3Form({ definition, initialSession, onSessionChange, onConfirma
           </Flex>
         ) : (
           <div className="assist-bar__quick-help">
-            <Button size="small" stretched onClick={onNeedHelp}>Нужна помощь</Button>
+            <div><strong>Не получается?</strong><span>Близкий или специалист подскажут голосом</span></div>
+            <Button size="small" stretched variant="secondary" onClick={onNeedHelp}><AppIcon name="people" />Позвать помощь</Button>
           </div>
         )}
       </section>

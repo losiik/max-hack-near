@@ -23,37 +23,33 @@ def test_new_highlight_replaces_the_previous_one_of_the_same_helper():
     ]
 
 
-def test_highlight_expires_and_other_kinds_stay():
+def test_highlight_expires():
     board = AnnotationBoard()
     session, sergey = uuid4(), uuid4()
 
     highlight = board.add(session, sergey, "highlight", "snils", None)
-    frame = board.add(session, sergey, "frame", "address", None)
-
     assert highlight.expires_at - highlight.created_at == HIGHLIGHT_TTL
-    assert frame.expires_at is None
 
     highlight.expires_at = now() - timedelta(seconds=1)
-    assert [item.kind for item in board.active(session)] == ["frame"]
+    assert board.active(session) == []
 
 
 def test_oldest_annotation_is_dropped_above_the_limit():
     board = AnnotationBoard()
-    session, sergey = uuid4(), uuid4()
+    session = uuid4()
 
     for index in range(MAX_PER_AUTHOR + 2):
-        board.add(session, sergey, "frame", f"element_{index}", None)
+        board.add(session, uuid4(), "highlight", f"element_{index}", None)
 
     alive = board.active(session)
-    assert len(alive) == MAX_PER_AUTHOR
-    assert [item.element_id for item in alive][0] == "element_2"
+    assert len(alive) == MAX_PER_AUTHOR + 2
 
 
 def test_helper_clears_only_own_annotations():
     board = AnnotationBoard()
     session, sergey, anna = uuid4(), uuid4(), uuid4()
-    board.add(session, sergey, "frame", "snils", None)
-    board.add(session, anna, "frame", "address", None)
+    board.add(session, sergey, "highlight", "snils", None)
+    board.add(session, anna, "highlight", "address", None)
 
     removed = board.clear(session, sergey)
 
@@ -63,21 +59,21 @@ def test_helper_clears_only_own_annotations():
 
 def test_single_annotation_can_be_cleared_by_id():
     board = AnnotationBoard()
-    session, sergey = uuid4(), uuid4()
-    first = board.add(session, sergey, "frame", "snils", None)
-    board.add(session, sergey, "arrow", "address", None)
+    session, sergey, anna = uuid4(), uuid4(), uuid4()
+    first = board.add(session, sergey, "highlight", "snils", None)
+    second = board.add(session, anna, "highlight", "address", None)
 
     removed = board.clear(session, sergey, first.id)
 
     assert [item.id for item in removed] == [first.id]
-    assert [item.kind for item in board.active(session)] == ["arrow"]
+    assert [item.id for item in board.active(session)] == [second.id]
     assert board.clear(session, sergey, first.id) == []
 
 
 def test_step_change_wipes_annotations_and_known_elements():
     board = AnnotationBoard()
     session, sergey = uuid4(), uuid4()
-    board.add(session, sergey, "frame", "snils", None)
+    board.add(session, sergey, "highlight", "snils", None)
     board.remember_elements(session, {"snils"})
 
     board.clear_step(session)
@@ -90,7 +86,7 @@ def test_board_forgets_sessions_without_annotations():
     board = AnnotationBoard()
     session, sergey = uuid4(), uuid4()
 
-    board.add(session, sergey, "frame", "snils", None)
+    board.add(session, sergey, "highlight", "snils", None)
     board.clear(session, sergey)
     assert session not in board.annotations
 
@@ -105,8 +101,8 @@ def test_annotation_of_a_gone_participant_is_skipped():
     assist = domain.start(owner, uuid4(), "housing_compensation", 1)
     board = AnnotationBoard()
     session = uuid4()
-    mine = board.add(session, assist.participants[0].id, "frame", "snils", None)
-    stranger = board.add(session, uuid4(), "frame", "address", None)
+    mine = board.add(session, assist.participants[0].id, "highlight", "snils", None)
+    stranger = board.add(session, uuid4(), "highlight", "address", None)
 
     assert annotation_out(mine, assist).element_id == "snils"
     assert annotation_out(stranger, assist) is None

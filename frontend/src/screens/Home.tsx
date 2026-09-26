@@ -1,12 +1,40 @@
-import { useState } from 'react';
-import { Avatar, Button, CellList, CellSimple, Flex, IconButton, Typography } from '@maxhub/max-ui';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { ActiveAssist, AuthUser, ServiceSession, ServiceSummary } from '../api/client';
-import { callHelpCallback, deleteServiceSession, dismissHelpCallback, markHelpCallbackReady, type AssistInvite, type AssistSession, type HelpCallback } from '../api/client';
-import { activeAssistsQuery, callbacksQuery, queryKeys, queryPolicy, removeCachedSession, servicesQuery, sessionsQuery } from '../api/queries';
-import { launchIntentLabel, type LaunchIntent } from '../platform/startParam';
-import { ScreenIntro, SectionHeading, StatusMark } from '../components/ScreenIntro';
-import { ConfirmDialog } from '../components/AppDialog';
+import { useState } from "react";
+import { Button, Flex, Typography } from "@maxhub/max-ui";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type {
+  ActiveAssist,
+  AuthUser,
+  ServiceSession,
+  ServiceSummary,
+} from "../api/client";
+import {
+  callHelpCallback,
+  deleteServiceSession,
+  dismissHelpCallback,
+  markHelpCallbackReady,
+  type AssistInvite,
+  type AssistSession,
+  type HelpCallback,
+} from "../api/client";
+import {
+  activeAssistsQuery,
+  callbacksQuery,
+  queryKeys,
+  queryPolicy,
+  removeCachedSession,
+  servicesQuery,
+  sessionsQuery,
+} from "../api/queries";
+import { launchIntentLabel, type LaunchIntent } from "../platform/startParam";
+import { SectionHeading, StatusMark } from "../components/ScreenIntro";
+import { ConfirmDialog } from "../components/AppDialog";
+import {
+  AppIcon,
+  IconButton,
+  ListRow,
+  PersonRow,
+  Surface,
+} from "../components/UiPrimitives";
 
 interface HomeProps {
   user: AuthUser;
@@ -20,28 +48,55 @@ interface HomeProps {
   onOpenActiveAssist: (id: string) => void;
 }
 
-function TrashIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M4 7h16M9 7V4h6v3m-9 0 1 13h10l1-13M10 11v5m4-5v5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
 function sessionStatus(session: ServiceSession): string {
-  if (session.status === 'submitted') return session.application_number ? `Отправлено · ${session.application_number}` : 'Отправлено';
-  if (session.status === 'cancelled') return 'Отменено';
+  if (session.status === "submitted")
+    return session.application_number
+      ? `Отправлено · ${session.application_number}`
+      : "Отправлено";
+  if (session.status === "cancelled") return "Отменено";
   return `Черновик · шаг ${session.current_step.index} из ${session.total_steps}`;
 }
 
-export function Home({ user, launchIntent, onOpenService, onOpenOperatorQueue, onOpenTrustedHelpers, onOpenHelpingFor, onOpenHistory, onOpenCallback, onOpenActiveAssist }: HomeProps) {
+export function Home({
+  user,
+  launchIntent,
+  onOpenService,
+  onOpenOperatorQueue,
+  onOpenTrustedHelpers,
+  onOpenHelpingFor,
+  onOpenHistory,
+  onOpenCallback,
+  onOpenActiveAssist,
+}: HomeProps) {
   const queryClient = useQueryClient();
-  const [deleteCandidate, setDeleteCandidate] = useState<ServiceSession | null>(null);
-  const services = useQuery({ queryKey: queryKeys.services(), queryFn: servicesQuery, ...queryPolicy });
-  const sessions = useQuery({ queryKey: queryKeys.sessions(), queryFn: sessionsQuery, ...queryPolicy });
-  const ownerCallbacks = useQuery({ queryKey: queryKeys.callbacks('owner'), queryFn: callbacksQuery, ...queryPolicy });
-  const helperCallbacks = useQuery({ queryKey: queryKeys.callbacks('helper'), queryFn: callbacksQuery, ...queryPolicy });
-  const activeAssists = useQuery({ queryKey: queryKeys.activeAssists(), queryFn: activeAssistsQuery, ...queryPolicy });
+  const [deleteCandidate, setDeleteCandidate] = useState<ServiceSession | null>(
+    null,
+  );
+  const services = useQuery({
+    queryKey: queryKeys.services(),
+    queryFn: servicesQuery,
+    ...queryPolicy,
+  });
+  const sessions = useQuery({
+    queryKey: queryKeys.sessions(),
+    queryFn: sessionsQuery,
+    ...queryPolicy,
+  });
+  const ownerCallbacks = useQuery({
+    queryKey: queryKeys.callbacks("owner"),
+    queryFn: callbacksQuery,
+    ...queryPolicy,
+  });
+  const helperCallbacks = useQuery({
+    queryKey: queryKeys.callbacks("helper"),
+    queryFn: callbacksQuery,
+    ...queryPolicy,
+  });
+  const activeAssists = useQuery({
+    queryKey: queryKeys.activeAssists(),
+    queryFn: activeAssistsQuery,
+    ...queryPolicy,
+  });
   const removeSession = useMutation({
     mutationFn: deleteServiceSession,
     onSuccess: (_, sessionId) => {
@@ -50,120 +105,344 @@ export function Home({ user, launchIntent, onOpenService, onOpenOperatorQueue, o
     },
   });
   const error = services.error ?? sessions.error ?? removeSession.error;
-  const refreshCallbacks = () => void Promise.all([ownerCallbacks.refetch(), helperCallbacks.refetch()]);
-  const callCallback = useMutation({ mutationFn: callHelpCallback, onSuccess: (result) => onOpenCallback(result.assist_session, result.invite) });
-  const readyCallback = useMutation({ mutationFn: markHelpCallbackReady, onSuccess: refreshCallbacks });
-  const dismissCallback = useMutation({ mutationFn: dismissHelpCallback, onSuccess: refreshCallbacks });
+  const refreshCallbacks = () =>
+    void Promise.all([ownerCallbacks.refetch(), helperCallbacks.refetch()]);
+  const callCallback = useMutation({
+    mutationFn: callHelpCallback,
+    onSuccess: (result) => onOpenCallback(result.assist_session, result.invite),
+  });
+  const readyCallback = useMutation({
+    mutationFn: markHelpCallbackReady,
+    onSuccess: refreshCallbacks,
+  });
+  const dismissCallback = useMutation({
+    mutationFn: dismissHelpCallback,
+    onSuccess: refreshCallbacks,
+  });
 
-  const draftFor = (code: string) => sessions.data?.find((session) => session.service.code === code && session.status === 'draft');
+  const draftFor = (code: string) =>
+    sessions.data?.find(
+      (session) => session.service.code === code && session.status === "draft",
+    );
+  const firstService = services.data?.[0];
+  const firstDraft = firstService ? draftFor(firstService.code) : undefined;
 
   return (
-    <Flex direction="column" gap={12}>
-      <Flex align="center" gap={12} className="profile-intro">
-        {user.photo_url ? (
-          <Avatar.Container size={56} form="squircle">
-            <Avatar.Image src={user.photo_url} alt="" />
-          </Avatar.Container>
-        ) : (
-          <div className="avatar-fallback" aria-hidden="true">
-            {user.display_name.slice(0, 1)}
+    <div className="ui-page home-page">
+      <header className="home-heading">
+        <div>
+          <div className="home-heading__brand">Рядом</div>
+          <div className="home-heading__subtitle">
+            Заполнить заявление проще и спокойнее
           </div>
-        )}
-        <Flex direction="column" gap={2}>
-          <Typography.Label className="eyebrow">Личный кабинет</Typography.Label>
-          <Typography.Headline>{user.display_name}</Typography.Headline>
-        </Flex>
-      </Flex>
-
-      <section className="home-hero">
-        <div className="home-hero__glow" aria-hidden="true" />
-        <ScreenIntro
-          eyebrow="Сервис рядом"
-          title="Оформим вместе"
-          description="Заполните заявление сами или позовите близкого — он подскажет голосом и покажет, куда нажать."
+        </div>
+        <PersonRow
+          name={user.display_name}
+          photoUrl={user.photo_url}
+          initials={user.display_name.slice(0, 1)}
+          tone="blue"
         />
-        <div className="home-hero__signal"><StatusMark tone="positive" /><Typography.Text>Можно начать сейчас</Typography.Text></div>
+      </header>
+      <section className="home-hero">
+        <div className="home-hero__copy">
+          <h1>
+            {firstDraft ? "Продолжить заявление" : "Начать новое заявление"}
+          </h1>
+          <p>
+            Пошагово проведём по форме, а если что-то непонятно — можно позвать
+            помощь.
+          </p>
+          {firstService && (
+            <Button
+              size="small"
+              onClick={() => onOpenService(firstService, firstDraft)}
+            >
+              {firstDraft ? "Продолжить" : "Начать"}
+              <AppIcon name="arrow-right" />
+            </Button>
+          )}
+        </div>
+        <div className="home-hero__art" aria-hidden="true">
+          <span />
+          <AppIcon name="document" />
+          <i />
+        </div>
       </section>
 
-      {user.staff && <Button size="small" stretched variant="secondary" onClick={onOpenOperatorQueue}>Открыть очередь МФЦ</Button>}
-      <Button size="small" stretched variant="secondary" onClick={onOpenTrustedHelpers}>Мои близкие</Button>
-      <Button size="small" stretched variant="secondary" onClick={onOpenHelpingFor}>Кому я помогаю</Button>
-      <Button size="small" stretched variant="secondary" onClick={onOpenHistory}>Мои консультации</Button>
+      {activeAssists.error && (
+        <div className="notice notice--error" role="alert">
+          <Flex direction="column" gap={8}>
+            <Typography.Text>
+              {activeAssists.error instanceof Error
+                ? activeAssists.error.message
+                : "Не удалось загрузить активную помощь."}
+            </Typography.Text>
+            <Button size="small" onClick={() => void activeAssists.refetch()}>
+              Повторить
+            </Button>
+          </Flex>
+        </div>
+      )}
+      {activeAssists.data && activeAssists.data.length > 0 && (
+        <section className="home-section">
+          <SectionHeading title="Активная помощь" />
+          {activeAssists.data.map((item: ActiveAssist) => (
+            <Surface key={item.id} tone="green" className="active-assist-card">
+              <div className="active-assist-card__title">
+                <StatusMark tone="positive" />
+                {item.my_role === "owner"
+                  ? "Вам помогают"
+                  : `Вы помогаете ${item.owner_display_name}`}
+              </div>
+              <PersonRow
+                name={item.service_title}
+                meta={`Шаг ${item.current_step.index} из ${item.total_steps} · ${item.status === "active" ? "идёт сейчас" : "ждём подключения"}`}
+                tone="green"
+                online={item.status === "active"}
+              />
+              <Button
+                size="small"
+                stretched
+                variant="secondary"
+                onClick={() => onOpenActiveAssist(item.id)}
+              >
+                Вернуться к заявлению
+              </Button>
+            </Surface>
+          ))}
+        </section>
+      )}
 
-      {activeAssists.error && <div className="notice notice--error" role="alert"><Flex direction="column" gap={8}><Typography.Text>{activeAssists.error instanceof Error ? activeAssists.error.message : 'Не удалось загрузить активную помощь.'}</Typography.Text><Button size="small" onClick={() => void activeAssists.refetch()}>Повторить</Button></Flex></div>}
-      {activeAssists.data && activeAssists.data.length > 0 && <section className="home-section"><SectionHeading title="Активная помощь" /><CellList mode="island" filled>{activeAssists.data.map((item: ActiveAssist) => <CellSimple key={item.id} surface="island" title={item.service_title} subtitle={`${item.my_role === 'owner' ? 'Вам помогают' : `Помогаете ${item.owner_display_name}`} · шаг ${item.current_step.index} из ${item.total_steps} · ${item.status === 'active' ? 'идёт сейчас' : 'ждём подключения'}`} after={<Button size="small" variant="secondary" onClick={() => onOpenActiveAssist(item.id)}>Вернуться</Button>} />)}</CellList></section>}
-
-      {ownerCallbacks.data?.map((callback: HelpCallback) => <div className="notice" key={callback.id}><Flex direction="column" gap={8}><Typography.Label>{callback.status === 'ready' ? `${callback.helper.display_name} готов помочь` : `${callback.helper.display_name} сейчас занят`}</Typography.Label><Typography.Text>{callback.service.title}</Typography.Text>{callback.status === 'ready' ? <Button size="small" stretched disabled={callCallback.isPending} onClick={() => callCallback.mutate(callback.id)}>Позвать</Button> : <Typography.Text className="muted-text">Мы сообщим, когда он освободится.</Typography.Text>}<Button size="small" stretched variant="destructive" disabled={dismissCallback.isPending} onClick={() => dismissCallback.mutate(callback.id)}>Убрать ожидание</Button></Flex></div>)}
-      {helperCallbacks.data?.filter((callback) => callback.status === 'busy').map((callback: HelpCallback) => <div className="notice" key={callback.id}><Flex direction="column" gap={8}><Typography.Label>Вы обещали помочь {callback.owner.display_name}</Typography.Label><Typography.Text>{callback.service.title}</Typography.Text><Button size="small" stretched disabled={readyCallback.isPending} onClick={() => readyCallback.mutate(callback.id)}>Освободился</Button></Flex></div>)}
+      {ownerCallbacks.data?.map((callback: HelpCallback) => (
+        <Surface tone="warning" key={callback.id} className="callback-card">
+          <PersonRow
+            name={
+              callback.status === "ready"
+                ? `${callback.helper.display_name} готов помочь`
+                : `${callback.helper.display_name} сейчас занят`
+            }
+            meta={callback.service.title}
+            tone="orange"
+          />
+          <div className="callback-card__actions">
+            {callback.status === "ready" ? (
+              <Button
+                size="small"
+                disabled={callCallback.isPending}
+                onClick={() => callCallback.mutate(callback.id)}
+              >
+                Позвать
+              </Button>
+            ) : (
+              <span>Сообщим, когда он освободится.</span>
+            )}
+            <Button
+              size="small"
+              variant="destructive"
+              disabled={dismissCallback.isPending}
+              onClick={() => dismissCallback.mutate(callback.id)}
+            >
+              Убрать ожидание
+            </Button>
+          </div>
+        </Surface>
+      ))}
+      {helperCallbacks.data
+        ?.filter((callback) => callback.status === "busy")
+        .map((callback: HelpCallback) => (
+          <Surface tone="warning" key={callback.id} className="callback-card">
+            <PersonRow
+              name={`Вы обещали помочь ${callback.owner.display_name}`}
+              meta={callback.service.title}
+              tone="orange"
+            />
+            <Button
+              size="small"
+              stretched
+              disabled={readyCallback.isPending}
+              onClick={() => readyCallback.mutate(callback.id)}
+            >
+              Я освободился
+            </Button>
+          </Surface>
+        ))}
 
       {error && (
         <div className="notice notice--error">
           <Flex direction="column" gap={10}>
-            <Typography.Text>{error instanceof Error ? error.message : 'Не удалось загрузить данные'}</Typography.Text>
-            <Button onClick={() => void Promise.all([services.refetch(), sessions.refetch()])}>Повторить</Button>
+            <Typography.Text>
+              {error instanceof Error
+                ? error.message
+                : "Не удалось загрузить данные"}
+            </Typography.Text>
+            <Button
+              onClick={() =>
+                void Promise.all([services.refetch(), sessions.refetch()])
+              }
+            >
+              Повторить
+            </Button>
           </Flex>
         </div>
       )}
 
-      <section className="home-section">
-        <SectionHeading title="Услуги" />
-        <Typography.Label className="service-category">ЖКХ</Typography.Label>
-        {(services.isLoading || sessions.isLoading) && <Typography.Text>Загружаем услуги…</Typography.Text>}
-        {services.data?.map((service) => {
-          const draft = draftFor(service.code);
-          return (
-            <div className="service-card" key={service.code}>
-              <Typography.Label className="service-card__meta">≈ {service.estimated_minutes} минут · {service.steps_count} шагов</Typography.Label>
-              <Typography.Headline>{service.title}</Typography.Headline>
-              <Typography.Text className="service-card__description">
-                {draft ? `Черновик · шаг ${draft.current_step.index} из ${service.steps_count}` : service.short_description}
-              </Typography.Text>
-              <Button size="small" stretched onClick={() => onOpenService(service, draft)}>
-                {draft ? 'Продолжить' : 'Начать'}
-              </Button>
-            </div>
-          );
-        })}
-      </section>
-
-      {sessions.data && sessions.data.length > 0 && (
+      {(services.isLoading || sessions.isLoading) && (
+        <Typography.Text>Загружаем услуги…</Typography.Text>
+      )}
+      {sessions.data?.some((item) => item.status === "draft") && (
         <section className="home-section">
-          <SectionHeading title="Мои заявления" />
-          <CellList mode="island" filled>
-            {sessions.data.map((session) => (
-              <CellSimple
-                key={session.id}
-                title={session.service.title}
-                subtitle={sessionStatus(session)}
-                after={
-                  <IconButton
-                    size="small"
-                    variant="ghost"
-                    className="delete-icon-button"
-                    aria-label={`Удалить заявление «${session.service.title}»`}
-                    title="Удалить заявление"
-                    onClick={() => setDeleteCandidate(session)}
-                  >
-                    <TrashIcon />
-                  </IconButton>
-                }
-                surface="island"
-              />
-            ))}
-          </CellList>
+          <SectionHeading title="Продолжить оформление" />
+          <div className="ui-list">
+            {sessions.data
+              .filter((item) => item.status === "draft")
+              .map((session) => (
+                <ListRow
+                  key={session.id}
+                  icon="document"
+                  title={session.service.title}
+                  subtitle={`Шаг ${session.current_step.index} из ${session.total_steps} · сохранено автоматически`}
+                  onClick={() => {
+                    const service = services.data?.find(
+                      (item) => item.code === session.service.code,
+                    );
+                    if (service) onOpenService(service, session);
+                  }}
+                />
+              ))}
+          </div>
         </section>
       )}
 
-      {deleteCandidate && <ConfirmDialog title="Удалить заявление?" description={`«${deleteCandidate.service.title}» будет удалено без возможности восстановления.`} confirmLabel="Удалить" destructive pending={removeSession.isPending} onCancel={() => setDeleteCandidate(null)} onConfirm={() => removeSession.mutate(deleteCandidate.id)} />}
+      <section className="home-section">
+        <SectionHeading title="Быстрые действия" />
+        <div className="ui-list">
+          <ListRow
+            icon="people"
+            iconTone="orange"
+            title="Мои близкие"
+            subtitle="Кого можно позвать одним нажатием"
+            onClick={onOpenTrustedHelpers}
+          />
+          <ListRow
+            icon="shield"
+            iconTone="blue"
+            title="Кому я помогаю"
+            subtitle="Люди, которые доверили вам помощь"
+            onClick={onOpenHelpingFor}
+          />
+          <ListRow
+            icon="history"
+            iconTone="green"
+            title="История помощи"
+            subtitle=""
+            onClick={onOpenHistory}
+          />
+          {user.staff && onOpenOperatorQueue && (
+            <ListRow
+              icon="headset"
+              iconTone="purple"
+              title="Очередь обращений"
+              subtitle="Рабочее место сотрудника МФЦ"
+              onClick={onOpenOperatorQueue}
+            />
+          )}
+        </div>
+      </section>
 
-      {launchIntent.kind !== 'home' && (
+      {services.data && services.data.length > 1 && (
+        <section className="home-section">
+          <SectionHeading title="Все услуги" />
+          <div className="ui-list">
+            {services.data.map((service) => {
+              const draft = draftFor(service.code);
+              return (
+                <ListRow
+                  key={service.code}
+                  icon="document"
+                  title={service.title}
+                  subtitle={
+                    draft
+                      ? `Черновик · шаг ${draft.current_step.index} из ${service.steps_count}`
+                      : `≈ ${service.estimated_minutes} минут · ${service.steps_count} шагов`
+                  }
+                  onClick={() => onOpenService(service, draft)}
+                />
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {sessions.data && sessions.data.length > 0 && (
+        <section className="home-section applications-section">
+          <SectionHeading title="Мои заявления" />
+          <div className="ui-list">
+            {sessions.data.map((session) => (
+              <ListRow
+                key={session.id}
+                icon="document"
+                title={session.service.title}
+                subtitle={sessionStatus(session)}
+                trailing={
+                  <IconButton
+                    tone="danger"
+                    icon="trash"
+                    label={`Удалить заявление «${session.service.title}»`}
+                    onClick={() => setDeleteCandidate(session)}
+                  />
+                }
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
+      <Surface className="how-it-works">
+        <SectionHeading title="Как это работает" />
+        <ol>
+          <li>
+            <span className="ui-tile ui-tile--blue">
+              <AppIcon name="document" />
+            </span>
+            <span>Выберите услугу</span>
+          </li>
+          <li>
+            <span className="ui-tile ui-tile--purple">
+              <AppIcon name="people" />
+            </span>
+            <span>Заполните вместе</span>
+          </li>
+          <li>
+            <span className="ui-tile ui-tile--green">
+              <AppIcon name="check" />
+            </span>
+            <span>Отправьте заявление</span>
+          </li>
+        </ol>
+      </Surface>
+
+      {deleteCandidate && (
+        <ConfirmDialog
+          title="Удалить заявление?"
+          description={`«${deleteCandidate.service.title}» будет удалено без возможности восстановления.`}
+          confirmLabel="Удалить"
+          destructive
+          pending={removeSession.isPending}
+          onCancel={() => setDeleteCandidate(null)}
+          onConfirm={() => removeSession.mutate(deleteCandidate.id)}
+        />
+      )}
+
+      {launchIntent.kind !== "home" && (
         <div className="launch-note">
           <Flex direction="column" gap={6}>
             <Typography.Text>Откроется следующий экран</Typography.Text>
-            <Typography.Title>{launchIntentLabel(launchIntent)}</Typography.Title>
+            <Typography.Title>
+              {launchIntentLabel(launchIntent)}
+            </Typography.Title>
           </Flex>
         </div>
       )}
-    </Flex>
+    </div>
   );
 }

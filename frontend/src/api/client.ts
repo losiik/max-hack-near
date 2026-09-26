@@ -339,6 +339,25 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return (await response.json()) as T;
 }
 
+async function requestBlob(path: string, signal?: AbortSignal): Promise<Blob> {
+  const headers = new Headers({ accept: 'audio/ogg' });
+  if (accessToken) headers.set('authorization', `Bearer ${accessToken}`);
+  const response = await fetch(`${API_BASE}${path}`, { headers, signal });
+  if (!response.ok) {
+    let message = `Ошибка запроса (${response.status})`;
+    let code: string | undefined;
+    try {
+      const payload = (await response.json()) as { error?: { message?: string; code?: string } };
+      message = payload.error?.message ?? message;
+      code = payload.error?.code;
+    } catch {
+      // Audio errors use the same JSON envelope as other API errors when available.
+    }
+    throw new ApiError(message, response.status, code);
+  }
+  return response.blob();
+}
+
 function finishLogin(payload: TokenResponse): TokenResponse {
   accessToken = payload.access_token;
   return payload;
@@ -509,6 +528,7 @@ export function getAssistSummary(sessionId: string, signal?: AbortSignal): Promi
 export function getConsultations(as: 'owner' | 'helper', signal?: AbortSignal): Promise<ConsultationListItem[]> { return request<ConsultationListItem[]>(`/consultations?as=${as}&limit=20`, { signal }); }
 export function getConsultation(id: string, signal?: AbortSignal): Promise<ConsultationDetail> { return request<ConsultationDetail>(`/consultations/${id}`, { signal }); }
 export function getConsultationReplay(id: string, signal?: AbortSignal): Promise<ConsultationReplay> { return request<ConsultationReplay>(`/consultations/${id}/replay`, { signal }); }
+export function getConsultationRecording(id: string, signal?: AbortSignal): Promise<Blob> { return requestBlob(`/consultations/${id}/recording`, signal); }
 export function deleteConsultationRecording(id: string): Promise<void> { return request<void>(`/consultations/${id}/recording`, { method: 'DELETE' }); }
 export function getHelpCallbacks(as: 'owner' | 'helper', signal?: AbortSignal): Promise<HelpCallback[]> { return request<HelpCallback[]>(`/help-callbacks?as=${as}`, { signal }); }
 export function markHelpCallbackReady(id: string): Promise<HelpCallback> { return request<HelpCallback>(`/help-callbacks/${id}/ready`, { method: 'POST' }); }

@@ -1,16 +1,14 @@
-import { Button, Flex, Typography } from '@maxhub/max-ui';
+import { Button } from '@maxhub/max-ui';
 import type { SubmitResult } from '../api/client';
-import { ScreenIntro } from '../components/ScreenIntro';
+import { StatusScreen, Surface } from '../components/UiPrimitives';
 
 export function S8Submitted({ result, onHome }: { result: SubmitResult; onHome: () => void }) {
   return (
-    <Flex direction="column" gap={12} className="submitted-screen">
-      <ScreenIntro eyebrow="Готово" title="Заявление отправлено" description="Мы сохранили результат демо-оформления." />
-      <div className="submitted-number"><Typography.Label>Номер заявления</Typography.Label><Typography.Headline>{result.application_number}</Typography.Headline></div>
-      <Typography.Text>
-        Это демо-услуга: заявление никуда не направляется, а данные не передаются в государственные системы.
-      </Typography.Text>
-      <Button size="small" stretched onClick={onHome}>На главную</Button>
-    </Flex>
+    <div className="ui-page submitted-screen">
+      <StatusScreen icon="check" tone="green" title="Заявление отправлено"><div className="submitted-number">№ {result.application_number}</div></StatusScreen>
+      <Surface><h2>Что дальше</h2><ol className="ui-numbered-list"><li>Заявление рассмотрят в течение 10 рабочих дней</li><li>Решение придёт сообщением в MAX</li><li>Если понадобятся документы, с вами свяжутся</li></ol></Surface>
+      <p className="ui-caption ui-caption--center">Это демонстрационная услуга: заявление никуда не отправлено.</p>
+      <div className="screen-actions"><Button size="small" stretched onClick={onHome}>На главную</Button></div>
+    </div>
   );
 }

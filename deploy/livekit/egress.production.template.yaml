@@ -1,0 +1,9 @@
+# Render this template on the VM with scripts/render-livekit-production.sh.
+# Do not commit the rendered file: it contains the production LiveKit secret.
+log_level: info
+api_key: __LIVEKIT_API_KEY__
+api_secret: __LIVEKIT_API_SECRET__
+ws_url: ws://livekit:7880
+insecure: true
+redis:
+  address: redis:6379

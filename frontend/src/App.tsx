@@ -34,6 +34,7 @@ import { getDisplayNameHint, getInitData, getStartParam, isMaxRuntime } from './
 import { parseStartParam, type LaunchIntent } from './platform/startParam';
 import { useAssistStore } from './realtime/assistStore';
 import { useAssistSocket } from './realtime/useAssistSocket';
+import { BottomNav } from './components/UiPrimitives';
 
 type AppMode = 'loading' | 'dev' | 'home' | 'operator-queue' | 'trusted-helpers' | 'helping-for' | 'pairing-invite' | 'consultations' | 'consultation-detail' | 'replay' | 'service' | 'form' | 'confirmation' | 'submitted' | 'help-options' | 'waiting' | 'helper-invite' | 'helper-busy' | 'helper-ready' | 'helper-pending' | 'helper-active' | 'assist-busy' | 'assist-ended' | 'error';
 
@@ -247,6 +248,12 @@ export default function App() {
     }
     catch (reason) { setAssistError(reason instanceof Error ? reason.message : 'Не удалось завершить помощь.'); }
   }
+  function continueAfterAssist() {
+    // Сбрасываем endedReason до смены режима, иначе realtime-эффект мгновенно вернёт экран завершения.
+    useAssistStore.getState().reset();
+    setAssist(null);
+    setMode(draft ? 'form' : 'home');
+  }
   async function approveJoin(approved: boolean) {
     if (!assist || !realtime.joinRequest) return;
     setAssistError('');
@@ -293,8 +300,17 @@ export default function App() {
   if (!user) return null;
 
   const helperSnapshot = realtime.snapshot ?? helperState.data;
+  const shellTitle: Partial<Record<AppMode, string>> = {
+    service: 'Услуга', form: definition?.title ?? 'Заявление', confirmation: definition?.title ?? 'Заявление', waiting: definition?.title ?? 'Помощь',
+    'help-options': definition?.title ?? 'Помощь', 'helper-invite': 'Приглашение', 'helper-busy': 'Приглашение', 'helper-ready': 'Приглашение',
+    'helper-pending': 'Приглашение', 'trusted-helpers': 'Мои близкие', 'helping-for': 'Кому я помогаю', 'pairing-invite': 'Добавить близкого',
+    consultations: 'История помощи', 'consultation-detail': 'Встреча', replay: 'Встреча', 'operator-queue': 'Очередь обращений', 'assist-ended': 'Итоги встречи',
+  };
+  const hideShellHeader = mode === 'home' || mode === 'helper-active' || mode === 'submitted' || mode === 'assist-busy';
+  const bottomNav = mode === 'home' ? 'home' : mode === 'consultations' ? 'history' : mode === 'trusted-helpers' || mode === 'helping-for' ? 'helpers' : null;
 
-  return <AppShell onBack={shellBack}>
+  return <AppShell onBack={shellBack} title={shellTitle[mode] ?? 'Рядом'} hideHeader={hideShellHeader}>
+    <div className={`screen-view screen-view--${mode}`} key={mode}>
     {mode === 'home' && <Home user={user} launchIntent={launchIntent} onOpenService={(service, existingDraft) => void openService(service, existingDraft)} onOpenOperatorQueue={user.staff ? () => setMode('operator-queue') : undefined} onOpenTrustedHelpers={() => setMode('trusted-helpers')} onOpenHelpingFor={() => setMode('helping-for')} onOpenHistory={() => setMode('consultations')} onOpenActiveAssist={(id) => void openActiveAssist(id)} onOpenCallback={(nextAssist, invite) => { setAssist(nextAssist); setInviteReady(invite.delivery === 'share_required' ? invite : null); setMode('waiting'); }} />}
     {mode === 'trusted-helpers' && <T1TrustedHelpers />}
     {mode === 'helping-for' && <T5HelpingFor onOpen={(id) => { setAssist({ id } as AssistSession); setMode('helper-active'); }} onPairing={(token) => { setInviteToken(token); setMode('pairing-invite'); }} />}
@@ -315,11 +331,13 @@ export default function App() {
     {mode === 'helper-pending' && <H2Pending error={realtime.error || assistError} rejected={realtime.rejected} connection={realtime.connection} onHome={backToHome} />}
     {mode === 'helper-active' && helperSnapshot && <H3Helper snapshot={helperSnapshot} connection={realtime.connection} onLeave={() => void leaveAssist()} />}
     {mode === 'helper-active' && !helperSnapshot && <Flex direction="column" gap={12}><Typography.Title>Подключаем помощь</Typography.Title>{helperState.isLoading && <Typography.Text>Загружаем текущий шаг…</Typography.Text>}{(helperState.error || realtime.error) && <div className="notice notice--error"><Typography.Text>{helperState.error instanceof Error ? helperState.error.message : realtime.error || 'Не удалось открыть консультацию.'}</Typography.Text><Button size="small" onClick={() => void helperState.refetch()}>Повторить</Button></div>}</Flex>}
-    {mode === 'assist-ended' && assist && <S9Ended sessionId={assist.id} owner={Boolean(realtime.snapshot?.session.me.role === 'owner' || draft)} onContinue={() => setMode('form')} onHome={backToHome} onHistory={() => setMode('consultations')} />}
+    {mode === 'assist-ended' && assist && <S9Ended sessionId={assist.id} owner={Boolean(realtime.snapshot?.session.me.role === 'owner' || draft)} onContinue={continueAfterAssist} onHome={backToHome} onHistory={() => setMode('consultations')} />}
     {mode === 'assist-busy' && <S10HelperBusy onSave={() => { void finishAssist().finally(backToHome); }} onOther={() => setMode('help-options')} />}
     {realtime.joinRequest && assist && <S6ApproveHelper helper={realtime.joinRequest} busy={approvalBusy} error={assistError} onApprove={() => void approveJoin(true)} onReject={() => void approveJoin(false)} />}
     {inviteReady && <InviteReadyDialog invite={inviteReady} onClose={() => setInviteReady(null)} />}
     {backAction === 'helper' && <ConfirmDialog title="Выйти из помощи?" description="Вы перестанете видеть заявление и участвовать в разговоре." confirmLabel="Выйти" destructive onCancel={() => setBackAction(null)} onConfirm={() => void leaveAssist()} />}
     {backAction === 'owner' && <ConfirmDialog title="Вернуться на главную?" description="Активная помощь не завершится. Её можно будет открыть снова в разделе «Активная помощь»." confirmLabel="Вернуться" onCancel={() => setBackAction(null)} onConfirm={backToHome} />}
+    </div>
+    {bottomNav && <BottomNav active={bottomNav} onHome={backToHome} onHistory={() => setMode('consultations')} onHelpers={() => setMode('trusted-helpers')} />}
   </AppShell>;
 }

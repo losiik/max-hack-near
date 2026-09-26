@@ -16,6 +16,7 @@ import {
   getHelpingFor,
   getConsultations,
   getConsultation,
+  getConsultationRecording,
   getConsultationReplay,
   getHelpCallbacks,
   getService,
@@ -44,6 +45,7 @@ export const queryKeys = {
   consultations: (as: 'owner' | 'helper') => ['consultations', as] as const,
   consultation: (id: string) => ['consultations', id] as const,
   replay: (id: string) => ['consultations', id, 'replay'] as const,
+  recording: (id: string) => ['consultations', id, 'recording'] as const,
   callbacks: (as: 'owner' | 'helper') => ['help-callbacks', as] as const,
 };
 
@@ -106,6 +108,7 @@ export function helpingForQuery({ signal }: QueryFunctionContext<ReturnType<type
 export function consultationsQuery({ queryKey, signal }: QueryFunctionContext<ReturnType<typeof queryKeys.consultations>>) { return getConsultations(queryKey[1], signal); }
 export function consultationQuery({ queryKey, signal }: QueryFunctionContext<ReturnType<typeof queryKeys.consultation>>) { return getConsultation(queryKey[1], signal); }
 export function replayQuery({ queryKey, signal }: QueryFunctionContext<ReturnType<typeof queryKeys.replay>>) { return getConsultationReplay(queryKey[1], signal); }
+export function recordingQuery({ queryKey, signal }: QueryFunctionContext<ReturnType<typeof queryKeys.recording>>) { return getConsultationRecording(queryKey[1], signal); }
 export function callbacksQuery({ queryKey, signal }: QueryFunctionContext<ReturnType<typeof queryKeys.callbacks>>) { return getHelpCallbacks(queryKey[1], signal); }
 
 export function cacheSession(queryClient: QueryClient, session: ServiceSession): void {

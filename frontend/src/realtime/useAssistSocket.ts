@@ -4,9 +4,6 @@ import { useAssistStore, type AssistEnvelope } from './assistStore';
 
 const ACK_COMMANDS = new Set([
   'annotation.highlight',
-  'annotation.frame',
-  'annotation.circle',
-  'annotation.arrow',
   'annotation.clear',
   'owner.flag_confusion',
 ]);

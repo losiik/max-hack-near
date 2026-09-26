@@ -1,5 +1,6 @@
-import { Input, Panel, Radio, Switch, Flex, Typography } from '@maxhub/max-ui';
+import { Radio, Switch, Flex, Typography } from '@maxhub/max-ui';
 import type { FieldError, ServiceDefinition, ServiceElement, ServiceStep } from '../api/client';
+import { AppIcon, AppInput } from './UiPrimitives';
 
 type FieldValue = string | number | boolean | null;
 
@@ -72,7 +73,7 @@ function formatSnils(value: string): string {
 
 function PrivacyHint({ element, visible }: { element: ServiceElement; visible: boolean }) {
   if (!visible || !element.privacy || element.privacy === 'public') return null;
-  return <small className="privacy-hint">Помощник не видит это значение</small>;
+  return <small className="privacy-hint"><AppIcon name="lock" />Помощник не видит это значение</small>;
 }
 
 export function FormRenderer({ definition, step, values, errors, onChange, onBlur, showPrivacyHints = false }: FormRendererProps) {
@@ -86,7 +87,7 @@ export function FormRenderer({ definition, step, values, errors, onChange, onBlu
   );
 
   return (
-    <Flex direction="column" gap={12}>
+    <Flex direction="column" gap={16} className="service-fields">
       {step.elements.filter((element) => isVisible(element, values)).map((element) => {
         const error = errorFor(element.id);
         const label = element.label ?? '';
@@ -95,7 +96,7 @@ export function FormRenderer({ definition, step, values, errors, onChange, onBlu
         if (element.type === 'info') {
           return (
             <div key={element.id} className={element.style === 'warning' ? 'form-info form-info--warning' : 'form-info'}>
-              <Typography.Text>{element.text}</Typography.Text>
+              <AppIcon name={element.style === 'warning' ? 'warning' : 'info'} /><Typography.Text>{element.text}</Typography.Text>
             </div>
           );
         }
@@ -104,14 +105,14 @@ export function FormRenderer({ definition, step, values, errors, onChange, onBlu
           return (
             <Flex key={element.id} direction="column" gap={10}>
               <Typography.Title>{label}</Typography.Title>
-              <Panel className="summary-list">
+              <div className="summary-list ui-surface">
                 {summaryRows.map((row) => (
                   <div className="summary-list__row" key={row.label}>
                     <Typography.Text>{row.label}</Typography.Text>
                     <Typography.Text>{row.value}</Typography.Text>
                   </div>
                 ))}
-              </Panel>
+              </div>
             </Flex>
           );
         }
@@ -202,9 +203,8 @@ export function FormRenderer({ definition, step, values, errors, onChange, onBlu
             </span>
             <PrivacyHint element={element} visible={showPrivacyHints} />
             <div className={element.unit ? 'input-with-unit' : undefined}>
-              <Input
+              <AppInput
                 type={type}
-                size="medium"
                 value={isSnils ? formatSnils(displayedValue) : displayedValue}
                 placeholder={element.placeholder}
                 inputMode={element.type === 'number' || element.type === 'otp' || isSnils ? 'numeric' : undefined}

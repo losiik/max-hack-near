@@ -1,7 +1,8 @@
-import { Button, Flex, Typography } from '@maxhub/max-ui';
+import { Button, Typography } from '@maxhub/max-ui';
 import { useEffect, useRef } from 'react';
 import { useVoiceRoom, type VoiceRole } from '../realtime/useVoiceRoom';
 import { useToast } from './ToastProvider';
+import { AppIcon } from './UiPrimitives';
 
 interface VoiceControlProps {
   sessionId: string;
@@ -44,15 +45,10 @@ export function VoiceControl({ sessionId, role, autoConnect = role === 'owner' }
       {voice.connection === 'idle' && role === 'owner' && autoConnect && <Typography.Text className="muted-text">Подключаем звук…</Typography.Text>}
       {voice.connection === 'reconnecting' && <Typography.Text className="muted-text">Восстанавливаем голосовое соединение…</Typography.Text>}
       {voice.connection === 'connected' && (
-        <Flex direction="column" gap={6}>
-          <Typography.Text className="voice-control__remote">{remoteCopy}</Typography.Text>
-          <Flex align="center" gap={8} className="voice-control__actions">
-            <Typography.Text className="muted-text">{localCopy}</Typography.Text>
-            <Button size="small" variant={voice.localMic ? 'secondary' : 'primary'} onClick={() => void voice.toggleMicrophone()}>
-              {voice.localMic ? 'Выключить микрофон' : 'Включить микрофон'}
-            </Button>
-          </Flex>
-        </Flex>
+        <div className="voice-control__connected">
+          <button type="button" className={`voice-mic${voice.localMic ? ' is-on' : ''}`} aria-label={voice.localMic ? 'Выключить микрофон' : 'Включить микрофон'} title={voice.localMic ? 'Выключить микрофон' : 'Включить микрофон'} onClick={() => void voice.toggleMicrophone()}><AppIcon name="microphone" /></button>
+          <div className="voice-control__copy"><strong>{voice.localMic ? 'Микрофон включён' : 'Микрофон выключен'}</strong><span>{speaking ? remoteCopy : localCopy || remoteCopy}</span></div>
+        </div>
       )}
       {voice.error && <Typography.Text className="notice--error">{voice.error}</Typography.Text>}
       {voice.connection === 'error' && <Button size="small" variant="secondary" onClick={() => void voice.connect()}>Повторить</Button>}

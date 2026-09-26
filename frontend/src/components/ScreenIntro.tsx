@@ -1,4 +1,3 @@
-import { Flex, Typography } from '@maxhub/max-ui';
 import type { ReactNode } from 'react';
 
 interface ScreenIntroProps {
@@ -10,21 +9,21 @@ interface ScreenIntroProps {
 
 export function ScreenIntro({ eyebrow, title, description, meta }: ScreenIntroProps) {
   return (
-    <Flex direction="column" gap={6} className="screen-intro">
-      {eyebrow && <Typography.Label className="eyebrow">{eyebrow}</Typography.Label>}
-      <Typography.Headline>{title}</Typography.Headline>
-      {description && <Typography.Body className="screen-intro__description">{description}</Typography.Body>}
-      {meta && <Typography.Text className="screen-intro__meta">{meta}</Typography.Text>}
-    </Flex>
+    <div className="screen-intro">
+      {eyebrow && <div className="eyebrow">{eyebrow}</div>}
+      <h1>{title}</h1>
+      {description && <p className="screen-intro__description">{description}</p>}
+      {meta && <div className="screen-intro__meta">{meta}</div>}
+    </div>
   );
 }
 
 export function SectionHeading({ title, action }: { title: string; action?: ReactNode }) {
   return (
-    <Flex align="center" justify="space-between" gap={12} className="section-heading">
-      <Typography.Title>{title}</Typography.Title>
+    <div className="section-heading">
+      <h2>{title}</h2>
       {action}
-    </Flex>
+    </div>
   );
 }
 

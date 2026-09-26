@@ -549,9 +549,9 @@ def test_annotation_is_checked_against_the_current_step(api):
 
     with api.websocket_connect(socket_url(assist["id"], helper)) as helper_ws:
         helper_ws.receive_json()
-        highlight(helper_ws, "snils", request_id="c-1", kind="frame")
+        highlight(helper_ws, "snils", request_id="c-1")
         unknown = helper_ws.receive_json()
-        highlight(helper_ws, "benefit_category", request_id="c-2", label="х" * 81, kind="frame")
+        highlight(helper_ws, "benefit_category", request_id="c-2", label="х" * 81)
         long_label = helper_ws.receive_json()
 
     assert unknown["payload"]["code"] == "unknown_element"
@@ -568,21 +568,22 @@ def test_helper_clears_own_annotations(api):
             helper_ws.receive_json()
             owner_ws.receive_json()
 
-            highlight(helper_ws, "benefit_category", request_id="1", kind="frame")
+            highlight(helper_ws, "benefit_category", request_id="1")
             first = owner_ws.receive_json()
-            helper_ws.receive_json()
-            highlight(helper_ws, "benefit_reason", request_id="2", kind="arrow")
-            owner_ws.receive_json()
             helper_ws.receive_json()
 
             helper_ws.send_json(
                 {
                     "command": "annotation.clear",
-                    "request_id": "3",
+                    "request_id": "2",
                     "payload": {"annotation_id": first["payload"]["id"]},
                 }
             )
             cleared = owner_ws.receive_json()
+            helper_ws.receive_json()
+
+            highlight(helper_ws, "benefit_reason", request_id="3")
+            owner_ws.receive_json()
             helper_ws.receive_json()
 
             helper_ws.send_json({"command": "annotation.clear", "request_id": "4", "payload": {}})
@@ -632,7 +633,7 @@ def test_step_change_clears_annotations(api):
 
     with api.websocket_connect(socket_url(assist["id"], helper)) as helper_ws:
         helper_ws.receive_json()
-        highlight(helper_ws, "benefit_category", kind="frame")
+        highlight(helper_ws, "benefit_category")
         helper_ws.receive_json()
 
         api.patch(f"{application}/fields", json={"values": STEP_VALUES["category"]}, headers=auth(owner))
@@ -655,7 +656,7 @@ def test_annotations_are_rate_limited(api):
     with api.websocket_connect(socket_url(assist["id"], helper)) as helper_ws:
         helper_ws.receive_json()
         for index in range(8):
-            highlight(helper_ws, "benefit_category", request_id=str(index), kind="frame")
+            highlight(helper_ws, "benefit_category", request_id=str(index))
         for _ in range(8):
             message = helper_ws.receive_json()
             answers.append(message["payload"].get("code", message["event"]))
