@@ -58,19 +58,3 @@ curl -fsS https://max-hackathon.explainlaw.ru/api/v1/services
 sudo nginx -t
 sudo certbot renew --dry-run
 ```
-
-Перед демо проверить в MAX WebView:
-
-- открытие mini app по HTTPS;
-- авторизацию через `initData`;
-- API через `/api/v1`;
-- Assist WebSocket через `/ws/assist/...`;
-- LiveKit через `wss://voice.max-hackathon.explainlaw.ru`;
-- разрешение микрофона;
-- создание и прослушивание записи;
-- светлую и тёмную тему;
-- отсутствие горизонтального скролла и декоративных самодельных рамок.
-
-## Правило синхронизации
-
-После любого изменения backend, frontend, API/WS-контракта, Nginx, Certbot, DNS, CORS или LiveKit нужно проверить уже сделанные части. Изменение считается готовым только после синхронизации локальной и production-проверок.

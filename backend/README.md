@@ -1,7 +1,5 @@
 # Backend — «Рядом»
 
-Деплой на VM через Nginx, домены `max-hackathon.explainlaw.ru` и `voice.max-hackathon.explainlaw.ru` описан в инструкции по деплою.
-
 ## Запуск
 
 ```bash
@@ -158,7 +156,7 @@ curl -s https://platform-api.max.ru/me -H "Authorization: ВАШ_ТОКЕН"
 
 ## Цифровой сотрудник
 
-Сам голосовой агент — отдельный процесс в [`agent/`](../agent/README.md), а backend отвечает за участника встречи, токен агента и журнал ходов. Контракт — 12, эндпоинты — 04, раздел 9.
+Сам голосовой агент — отдельный процесс в [`agent/`](../agent/README.md), а backend отвечает за участника встречи, токен агента и журнал ходов.
 
 Ключ Yandex AI Studio кладётся в `.env`:
 
