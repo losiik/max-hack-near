@@ -10,7 +10,12 @@ import { AppIcon, formatDuration, PersonRow, Surface } from '../components/UiPri
 export function R2Consultation({ id, onReplay }: { id: string; onReplay: () => void }) {
   const queryClient = useQueryClient();
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const detail = useQuery({ queryKey: queryKeys.consultation(id), queryFn: consultationQuery });
+  const detail = useQuery({
+    queryKey: queryKeys.consultation(id),
+    queryFn: consultationQuery,
+    refetchOnWindowFocus: true,
+    refetchInterval: (query) => query.state.data?.recording?.status === 'recording' ? 3000 : false,
+  });
   const removeRecording = useMutation({ mutationFn: deleteConsultationRecording, onSuccess: () => { setConfirmDelete(false); void queryClient.invalidateQueries({ queryKey: queryKeys.consultation(id) }); void queryClient.invalidateQueries({ queryKey: queryKeys.replay(id) }); } });
   if (detail.isLoading) return <Typography.Text>Загружаем консультацию…</Typography.Text>;
   if (detail.error || !detail.data) return <div className="notice notice--error"><Flex direction="column" gap={8}><Typography.Text>{detail.error instanceof Error ? detail.error.message : 'Не удалось открыть консультацию'}</Typography.Text><Button size="small" onClick={() => void detail.refetch()}>Повторить</Button></Flex></div>;

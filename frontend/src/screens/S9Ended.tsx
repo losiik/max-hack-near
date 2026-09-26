@@ -4,7 +4,12 @@ import { assistSummaryQuery, queryKeys } from '../api/queries';
 import { AppIcon, PersonRow, StatusScreen, Surface } from '../components/UiPrimitives';
 
 export function S9Ended({ sessionId, owner, onContinue, onHome, onHistory }: { sessionId: string; owner: boolean; onContinue: () => void; onHome: () => void; onHistory: () => void }) {
-  const summary = useQuery({ queryKey: queryKeys.assistSummary(sessionId), queryFn: assistSummaryQuery, retry: 1 });
+  const summary = useQuery({
+    queryKey: queryKeys.assistSummary(sessionId),
+    queryFn: assistSummaryQuery,
+    retry: 1,
+    refetchInterval: (query) => query.state.data?.recording?.status === 'recording' ? 3000 : false,
+  });
   if (summary.isLoading) return <Typography.Text className="loading-copy">Готовим итог встречи…</Typography.Text>;
   const data = summary.data;
   const helpers = data?.helpers.map((item) => item.display_name).join(', ') || 'Помощник';

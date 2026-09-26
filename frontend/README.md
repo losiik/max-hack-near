@@ -13,6 +13,8 @@ npm run dev
 
 Локально frontend доступен на `http://localhost:5173`. Vite proxy отправляет `/api`, `/health`, `/openapi.json` и `/ws` в backend на `http://localhost:8000`.
 
+Для проверки production-сборки frontend вместе с локальным Nginx и LiveKit используйте из корня репозитория `make deploy-local`. В этом режиме frontend собирается в Docker-образе без фиксированной платформы, а приложение открывается на `http://localhost:3000`.
+
 ## Проверка
 
 ```bash

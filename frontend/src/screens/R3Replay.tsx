@@ -8,7 +8,12 @@ import { AppIcon, Surface } from '../components/UiPrimitives';
 function seconds(offset: number): string { return `${Math.floor(offset / 60_000)}:${String(Math.floor(offset / 1_000) % 60).padStart(2, '0')}`; }
 
 export function R3Replay({ id }: { id: string }) {
-  const replay = useQuery({ queryKey: queryKeys.replay(id), queryFn: replayQuery });
+  const replay = useQuery({
+    queryKey: queryKeys.replay(id),
+    queryFn: replayQuery,
+    refetchOnWindowFocus: true,
+    refetchInterval: (query) => query.state.data?.recording?.status === 'recording' ? 3000 : false,
+  });
   const recording = useQuery({
     queryKey: queryKeys.recording(id),
     queryFn: recordingQuery,

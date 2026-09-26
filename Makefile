@@ -5,7 +5,13 @@ DOMAIN ?=
 APP_DIR ?= /opt/max-hackathon
 WEB_ROOT ?= /var/www/max-hackathon
 
-.PHONY: check build deploy deploy-frontend deploy-backend production-check remote-env
+LOCAL_WEB_PORT ?= 3000
+LOCAL_WEB_BIND_ADDRESS ?= 127.0.0.1
+LOCAL_CHECK_HOST ?= 127.0.0.1
+LOCAL_LIVEKIT_NODE_IP ?= 127.0.0.1
+LOCAL_COMPOSE_ENV = APP_ENV=dev DATABASE_URL=postgresql+asyncpg://assist:assist@postgres:5432/assist CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000 LIVEKIT_URL=ws://localhost:7880 LIVEKIT_API_URL=http://livekit:7880 LIVEKIT_API_KEY=devkey LIVEKIT_API_SECRET=dev-livekit-secret-change-me-32-bytes LIVEKIT_CONFIG_FILE=./livekit/livekit.yaml LIVEKIT_EGRESS_CONFIG_FILE=./livekit/egress.yaml LIVEKIT_NODE_IP=$(LOCAL_LIVEKIT_NODE_IP) MAX_BOT_TOKEN= RECORDINGS_VOLUME=local_recordings EGRESS_USER=0:0
+
+.PHONY: check build deploy deploy-frontend deploy-backend deploy-local local-down local-logs production-check remote-env
 
 remote-env:
 	@test -n "$(VM)" || { echo "Укажите сервер: make $(MAKECMDGOALS) VM=user@host DOMAIN=example.ru" >&2; exit 1; }
@@ -25,6 +31,23 @@ deploy-backend: remote-env
 
 deploy: remote-env
 	VM="$(VM)" DOMAIN="$(DOMAIN)" bash scripts/deploy-production.sh all
+
+deploy-local:
+	$(LOCAL_COMPOSE_ENV) WEB_PORT=$(LOCAL_WEB_PORT) WEB_BIND_ADDRESS=$(LOCAL_WEB_BIND_ADDRESS) docker compose --profile local up -d --build
+	@for attempt in $$(seq 1 30); do \
+		if curl -fsS http://$(LOCAL_CHECK_HOST):$(LOCAL_WEB_PORT)/health; then exit 0; fi; \
+		sleep 2; \
+	done; \
+	echo "Local API did not become healthy" >&2; \
+	docker compose --profile local ps; \
+	exit 1
+	docker compose --profile local ps
+
+local-down:
+	docker compose --profile local down
+
+local-logs:
+	docker compose --profile local logs -f nginx frontend api postgres redis livekit egress agent
 
 production-check: remote-env
 	ssh $(VM) 'set -eu; curl -fsS https://$(DOMAIN)/health; echo; cd $(APP_DIR); docker compose ps --format "table {{.Service}}\\t{{.State}}"'

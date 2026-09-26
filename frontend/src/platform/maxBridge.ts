@@ -86,10 +86,14 @@ export function hapticLight(): void {
 
 export function setScreenCaptureProtection(enabled: boolean): void {
   const screenCapture = getMaxWebApp()?.ScreenCapture;
-  const operation = enabled ? screenCapture?.disableScreenCapture : screenCapture?.enableScreenCapture;
-  void operation?.().catch(() => {
+  if (!screenCapture) return;
+  try {
+    // Call bridge methods on their object: detached from it they lose `this` and throw.
+    const result = enabled ? screenCapture.disableScreenCapture?.() : screenCapture.enableScreenCapture?.();
+    void result?.catch(() => undefined);
+  } catch {
     // This capability is optional in browser fallback and older MAX clients.
-  });
+  }
 }
 
 export async function copyText(text: string): Promise<void> {
@@ -115,10 +119,14 @@ export async function copyText(text: string): Promise<void> {
 }
 
 export async function shareMaxContent(content: { text: string; link: string }): Promise<'max' | 'max-web' | 'web' | 'clipboard'> {
-  const share = getMaxWebApp()?.shareMaxContent;
-  if (share) {
-    share(content);
-    return 'max';
+  const webApp = getMaxWebApp();
+  if (webApp?.shareMaxContent) {
+    try {
+      webApp.shareMaxContent(content);
+      return 'max';
+    } catch {
+      // the bridge outside MAX cannot share: fall back to the browser below
+    }
   }
   if (navigator.share) {
     await navigator.share({ text: content.text, url: content.link });
@@ -153,6 +161,12 @@ export async function openCodeReader(): Promise<string | null> {
 
 export function setQrBrightness(enabled: boolean): void {
   const app = getMaxWebApp();
-  const operation = enabled ? app?.requestScreenMaxBrightness : app?.restoreScreenBrightness;
-  void operation?.().catch(() => undefined);
+  if (!app) return;
+  try {
+    // Same as openCodeReader: the bridge needs `this`, so never call a detached method.
+    const result = enabled ? app.requestScreenMaxBrightness?.() : app.restoreScreenBrightness?.();
+    void result?.catch(() => undefined);
+  } catch {
+    // Brightness is a convenience; it must not take the screen down.
+  }
 }

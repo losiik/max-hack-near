@@ -99,6 +99,10 @@ export default function App() {
     if (realtime.endedReason && assist && mode !== 'assist-ended') setMode('assist-ended');
   }, [assist, mode, realtime.endedReason, realtime.inviteDeclined, realtime.snapshot]);
 
+  useEffect(() => {
+    if (realtime.joinRequest) setInviteReady(null);
+  }, [realtime.joinRequest]);
+
   if (mode === 'loading') return <AppShell><A0 message={maxUserHint ? `Входим как ${maxUserHint}` : undefined} /></AppShell>;
   if (mode === 'dev') return <AppShell><D1 onLogin={beginUserSession} onHome={() => setMode('home')} onLaunch={(value) => { const intent = parseStartParam(value); if (intent.kind === 'assist_invite') { setInviteToken(intent.token); setMode('helper-invite'); } else if (intent.kind === 'invite_declined') { setInviteToken(intent.token); setMode('helper-busy'); } else if (intent.kind === 'helper_ready') { setInviteToken(intent.callbackId); setMode('helper-ready'); } else if (intent.kind === 'pairing') { setInviteToken(intent.token); setMode('pairing-invite'); } }} /></AppShell>;
   if (mode === 'error') return <AppShell><Flex direction="column" gap={12}><Typography.Title>Не удалось продолжить</Typography.Title><Typography.Text>{error || 'Откройте приложение из MAX и попробуйте снова.'}</Typography.Text><Button onClick={() => window.location.reload()}>Повторить</Button></Flex></AppShell>;
@@ -248,6 +252,16 @@ export default function App() {
     }
     catch (reason) { setAssistError(reason instanceof Error ? reason.message : 'Не удалось завершить помощь.'); }
   }
+  async function openHistory() {
+    setBackAction(null);
+    useAssistStore.getState().reset();
+    setAssist(null);
+    setMode('consultations');
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: queryKeys.consultations('owner') }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.consultations('helper') }),
+    ]);
+  }
   function continueAfterAssist() {
     // Сбрасываем endedReason до смены режима, иначе realtime-эффект мгновенно вернёт экран завершения.
     useAssistStore.getState().reset();
@@ -260,7 +274,7 @@ export default function App() {
     setApprovalBusy(true);
     try {
       const next = approved ? await approveAssistParticipant(assist.id, realtime.joinRequest.id) : await rejectAssistParticipant(assist.id, realtime.joinRequest.id);
-      cacheAssistSession(queryClient, next); setAssist(next); useAssistStore.getState().clearJoinRequest();
+      cacheAssistSession(queryClient, next); setAssist(next); setInviteReady(null); useAssistStore.getState().clearJoinRequest();
       if (approved) setMode('form');
     } catch (reason) { setAssistError(reason instanceof Error ? reason.message : 'Не удалось обновить подключение.'); }
     finally { setApprovalBusy(false); }
@@ -311,7 +325,7 @@ export default function App() {
 
   return <AppShell onBack={shellBack} title={shellTitle[mode] ?? 'Рядом'} hideHeader={hideShellHeader}>
     <div className={`screen-view screen-view--${mode}`} key={mode}>
-    {mode === 'home' && <Home user={user} launchIntent={launchIntent} onOpenService={(service, existingDraft) => void openService(service, existingDraft)} onOpenOperatorQueue={user.staff ? () => setMode('operator-queue') : undefined} onOpenTrustedHelpers={() => setMode('trusted-helpers')} onOpenHelpingFor={() => setMode('helping-for')} onOpenHistory={() => setMode('consultations')} onOpenActiveAssist={(id) => void openActiveAssist(id)} onOpenCallback={(nextAssist, invite) => { setAssist(nextAssist); setInviteReady(invite.delivery === 'share_required' ? invite : null); setMode('waiting'); }} />}
+    {mode === 'home' && <Home user={user} launchIntent={launchIntent} onOpenService={(service, existingDraft) => void openService(service, existingDraft)} onOpenOperatorQueue={user.staff ? () => setMode('operator-queue') : undefined} onOpenTrustedHelpers={() => setMode('trusted-helpers')} onOpenHelpingFor={() => setMode('helping-for')} onOpenHistory={() => void openHistory()} onOpenActiveAssist={(id) => void openActiveAssist(id)} onOpenCallback={(nextAssist, invite) => { setAssist(nextAssist); setInviteReady(invite.delivery === 'share_required' ? invite : null); setMode('waiting'); }} />}
     {mode === 'trusted-helpers' && <T1TrustedHelpers />}
     {mode === 'helping-for' && <T5HelpingFor onOpen={(id) => { setAssist({ id } as AssistSession); setMode('helper-active'); }} onPairing={(token) => { setInviteToken(token); setMode('pairing-invite'); }} />}
     {mode === 'pairing-invite' && inviteToken && <T4PairingInvite token={inviteToken} onHome={backToHome} />}
@@ -331,13 +345,13 @@ export default function App() {
     {mode === 'helper-pending' && <H2Pending error={realtime.error || assistError} rejected={realtime.rejected} connection={realtime.connection} onHome={backToHome} />}
     {mode === 'helper-active' && helperSnapshot && <H3Helper snapshot={helperSnapshot} connection={realtime.connection} onLeave={() => void leaveAssist()} />}
     {mode === 'helper-active' && !helperSnapshot && <Flex direction="column" gap={12}><Typography.Title>Подключаем помощь</Typography.Title>{helperState.isLoading && <Typography.Text>Загружаем текущий шаг…</Typography.Text>}{(helperState.error || realtime.error) && <div className="notice notice--error"><Typography.Text>{helperState.error instanceof Error ? helperState.error.message : realtime.error || 'Не удалось открыть консультацию.'}</Typography.Text><Button size="small" onClick={() => void helperState.refetch()}>Повторить</Button></div>}</Flex>}
-    {mode === 'assist-ended' && assist && <S9Ended sessionId={assist.id} owner={Boolean(realtime.snapshot?.session.me.role === 'owner' || draft)} onContinue={continueAfterAssist} onHome={backToHome} onHistory={() => setMode('consultations')} />}
+    {mode === 'assist-ended' && assist && <S9Ended sessionId={assist.id} owner={Boolean(realtime.snapshot?.session.me.role === 'owner' || draft)} onContinue={continueAfterAssist} onHome={backToHome} onHistory={() => void openHistory()} />}
     {mode === 'assist-busy' && <S10HelperBusy onSave={() => { void finishAssist().finally(backToHome); }} onOther={() => setMode('help-options')} />}
     {realtime.joinRequest && assist && <S6ApproveHelper helper={realtime.joinRequest} busy={approvalBusy} error={assistError} onApprove={() => void approveJoin(true)} onReject={() => void approveJoin(false)} />}
     {inviteReady && <InviteReadyDialog invite={inviteReady} onClose={() => setInviteReady(null)} />}
     {backAction === 'helper' && <ConfirmDialog title="Выйти из помощи?" description="Вы перестанете видеть заявление и участвовать в разговоре." confirmLabel="Выйти" destructive onCancel={() => setBackAction(null)} onConfirm={() => void leaveAssist()} />}
     {backAction === 'owner' && <ConfirmDialog title="Вернуться на главную?" description="Активная помощь не завершится. Её можно будет открыть снова в разделе «Активная помощь»." confirmLabel="Вернуться" onCancel={() => setBackAction(null)} onConfirm={backToHome} />}
     </div>
-    {bottomNav && <BottomNav active={bottomNav} onHome={backToHome} onHistory={() => setMode('consultations')} onHelpers={() => setMode('trusted-helpers')} />}
+    {bottomNav && <BottomNav active={bottomNav} onHome={backToHome} onHistory={() => void openHistory()} onHelpers={() => setMode('trusted-helpers')} />}
   </AppShell>;
 }
