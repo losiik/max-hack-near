@@ -9,6 +9,8 @@ import {
   getDevUsers,
   getServiceSessions,
   getMe,
+  getOperatorQueue,
+  getTrustedHelpers,
   getService,
   getServices,
   type AssistSession,
@@ -28,6 +30,8 @@ export const queryKeys = {
   assistState: (id: string) => ['assist-sessions', id, 'state'] as const,
   assistSummary: (id: string) => ['assist-sessions', id, 'summary'] as const,
   assistInvite: (token: string) => ['assist-invites', token] as const,
+  operatorQueue: () => ['operator', 'requests'] as const,
+  trustedHelpers: () => ['trusted-helpers'] as const,
 };
 
 export const queryPolicy = {
@@ -77,6 +81,9 @@ export function assistSummaryQuery({ queryKey, signal }: QueryFunctionContext<Re
 export function assistInviteQuery({ queryKey, signal }: QueryFunctionContext<ReturnType<typeof queryKeys.assistInvite>>) {
   return getAssistInvite(queryKey[1], signal);
 }
+
+export function operatorQueueQuery({ signal }: QueryFunctionContext<ReturnType<typeof queryKeys.operatorQueue>>) { return getOperatorQueue(signal); }
+export function trustedHelpersQuery({ signal }: QueryFunctionContext<ReturnType<typeof queryKeys.trustedHelpers>>) { return getTrustedHelpers(signal); }
 
 export function cacheSession(queryClient: QueryClient, session: ServiceSession): void {
   queryClient.setQueryData(queryKeys.session(session.id), session);

@@ -596,6 +596,29 @@ input {
   line-height: 20px;
 }
 
+.help-option {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: var(--background-secondary);
+}
+
+.qr-card {
+  display: grid;
+  place-items: center;
+  padding: 12px;
+  border-radius: 14px;
+  background: white;
+}
+
+.participant-badge,
+.operator-hint {
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
 .visually-hidden {
   position: absolute;
   width: 1px;

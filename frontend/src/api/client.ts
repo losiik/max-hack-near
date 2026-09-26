@@ -185,6 +185,10 @@ export interface AssistInvite {
   expires_at: string;
   delivery: 'share_required' | 'bot_message';
 }
+export interface TrustedHelper { id: string; helper: Person; alias: string | null; verification_method: string; created_at: string; last_helped_at: string | null; }
+export interface Pairing { id: string; method: 'qr' | 'link'; status: string; token: string; qr_payload: string; deep_link: string; expires_at: string; }
+export interface PairingState { id: string; status: string; expires_at: string; claimed_by: { display_name: string; photo_url: string | null; max_username: string | null } | null; }
+export interface PairingPreview { status: string; owner: { display_name: string; photo_url: string | null }; }
 
 export interface InvitePreview {
   status: 'valid' | 'expired' | 'used' | 'declined' | 'revoked' | 'session_ended';
@@ -259,6 +263,18 @@ export interface ConsultationSummary {
   recording: { status: string; duration_ms: number | null } | null;
   actions: { can_continue: boolean; can_call_again: Array<{ trusted_helper_id: string; display_name: string }> };
 }
+
+export interface OperatorQueueItem {
+  id: string;
+  status: string;
+  source: string;
+  topic: 'dont_understand' | 'form_error' | 'other';
+  created_at: string;
+  waiting_sec: number;
+  context: { owner_display_name: string; service_title: string; step: { index: number; total: number; title: string } | null; error_codes: string[]; ai_summary: string | null };
+}
+
+export interface OperatorRequest { id: string; status: string; topic: string; position: number | null; }
 
 export class ApiError extends Error {
   constructor(
@@ -414,12 +430,19 @@ export function getAssistState(id: string, signal?: AbortSignal): Promise<Projec
   return request<ProjectedState>(`/assist-sessions/${id}/state`, { signal });
 }
 
-export function createAssistInvite(id: string): Promise<AssistInvite> {
+export function createAssistInvite(id: string, trustedHelperId?: string): Promise<AssistInvite> {
   return request<AssistInvite>(`/assist-sessions/${id}/invites`, {
     method: 'POST',
-    body: JSON.stringify({ kind: 'link' }),
+    body: JSON.stringify(trustedHelperId ? { kind: 'trusted_call', trusted_helper_id: trustedHelperId } : { kind: 'link' }),
   });
 }
+
+export function getTrustedHelpers(signal?: AbortSignal): Promise<TrustedHelper[]> { return request<TrustedHelper[]>('/trusted-helpers', { signal }); }
+export function createPairing(method: Pairing['method']): Promise<Pairing> { return request<Pairing>('/pairings', { method: 'POST', body: JSON.stringify({ method }) }); }
+export function getPairing(id: string, signal?: AbortSignal): Promise<PairingState> { return request<PairingState>(`/pairings/${id}`, { signal }); }
+export function confirmPairing(id: string, alias?: string): Promise<TrustedHelper> { return request<TrustedHelper>(`/pairings/${id}/confirm`, { method: 'POST', body: JSON.stringify({ alias }) }); }
+export function getPairingPreview(token: string, signal?: AbortSignal): Promise<PairingPreview> { return request<PairingPreview>(`/pairing-tokens/${token}`, { signal }); }
+export function claimPairing(token: string): Promise<{ pairing_id: string; status: string }> { return request(`/pairing-tokens/${token}/claim`, { method: 'POST' }); }
 
 export function getAssistInvite(token: string, signal?: AbortSignal): Promise<InvitePreview> {
   return request<InvitePreview>(`/assist-invites/${token}`, { signal });
@@ -448,3 +471,7 @@ export function endAssistSession(sessionId: string): Promise<ConsultationSummary
 export function getAssistSummary(sessionId: string, signal?: AbortSignal): Promise<ConsultationSummary> {
   return request<ConsultationSummary>(`/assist-sessions/${sessionId}/summary`, { signal });
 }
+
+export function getOperatorQueue(signal?: AbortSignal): Promise<OperatorQueueItem[]> { return request<OperatorQueueItem[]>('/operator/requests', { signal }); }
+export function claimOperatorRequest(id: string): Promise<{ assist_session_id: string; participant_id: string }> { return request(`/operator/requests/${id}/claim`, { method: 'POST' }); }
+export function requestOperatorForApplication(id: string, topic: OperatorQueueItem['topic']): Promise<{ assist_session: AssistSession; request: OperatorRequest }> { return request(`/service-sessions/${id}/operator-requests`, { method: 'POST', body: JSON.stringify({ topic }) }); }

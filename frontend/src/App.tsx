@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Button, Flex, Typography } from '@maxhub/max-ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { acceptAssistInvite, agreeToRecording, ApiError, approveAssistParticipant, createAssistInvite, createAssistSession, endAssistSession, leaveAssistSession, loginWithMax, rejectAssistParticipant, startServiceSession, type AssistInvite, type AssistSession, type AuthUser, type ServiceDefinition, type ServiceSession, type ServiceSummary, type SubmitResult } from './api/client';
+import { acceptAssistInvite, agreeToRecording, ApiError, approveAssistParticipant, createAssistInvite, createAssistSession, endAssistSession, leaveAssistSession, loginWithMax, rejectAssistParticipant, requestOperatorForApplication, startServiceSession, type AssistInvite, type AssistSession, type AuthUser, type ServiceDefinition, type ServiceSession, type ServiceSummary, type SubmitResult } from './api/client';
 import { InviteReadyDialog } from './components/InviteReadyDialog';
 import { cacheAssistSession, cacheSession, queryKeys, serviceQuery } from './api/queries';
 import { AppShell } from './app/AppShell';
@@ -19,12 +19,15 @@ import { S6ApproveHelper } from './screens/S6ApproveHelper';
 import { S7Confirmation } from './screens/S7Confirmation';
 import { S8Submitted } from './screens/S8Submitted';
 import { S9Ended } from './screens/S9Ended';
+import { O1OperatorQueue } from './screens/O1OperatorQueue';
+import { T1TrustedHelpers } from './screens/T1TrustedHelpers';
+import { T4PairingInvite } from './screens/T4PairingInvite';
 import { getDisplayNameHint, getInitData, getStartParam, isMaxRuntime } from './platform/maxBridge';
 import { parseStartParam, type LaunchIntent } from './platform/startParam';
 import { useAssistStore } from './realtime/assistStore';
 import { useAssistSocket } from './realtime/useAssistSocket';
 
-type AppMode = 'loading' | 'dev' | 'home' | 'service' | 'form' | 'confirmation' | 'submitted' | 'help-options' | 'waiting' | 'helper-invite' | 'helper-pending' | 'helper-active' | 'assist-ended' | 'error';
+type AppMode = 'loading' | 'dev' | 'home' | 'operator-queue' | 'trusted-helpers' | 'pairing-invite' | 'service' | 'form' | 'confirmation' | 'submitted' | 'help-options' | 'waiting' | 'helper-invite' | 'helper-pending' | 'helper-active' | 'assist-ended' | 'error';
 
 export default function App() {
   const queryClient = useQueryClient();
@@ -63,7 +66,7 @@ export default function App() {
     }
     loginWithMax(getInitData()).then((response) => {
       beginUserSession(response.user);
-      if (intent.kind === 'assist_invite') { setInviteToken(intent.token); setMode('helper-invite'); } else setMode('home');
+      if (intent.kind === 'assist_invite') { setInviteToken(intent.token); setMode('helper-invite'); } else if (intent.kind === 'pairing') { setInviteToken(intent.token); setMode('pairing-invite'); } else setMode('home');
     }).catch((reason: Error) => { setError(reason.message); setMode('error'); });
   }, []);
 
@@ -104,11 +107,40 @@ export default function App() {
       else setAssistError(reason instanceof Error ? reason.message : 'Не удалось подготовить приглашение.');
     }
   }
+  async function callTrusted(trustedHelperId: string) {
+    if (!draft) return;
+    setAssistError('');
+    try {
+      if (consentRequired && consent) await agreeToRecording();
+      const nextAssist = assist ?? await createAssist.mutateAsync(draft.id);
+      const invite = await createAssistInvite(nextAssist.id, trustedHelperId);
+      setAssist(nextAssist);
+      setMode('waiting');
+      if (invite.delivery === 'share_required') setInviteReady(invite);
+    } catch (reason) {
+      if (reason instanceof ApiError && reason.code === 'recording_consent_required') { setConsentRequired(true); setAssistError('Перед приглашением подтвердите согласие на запись.'); }
+      else setAssistError(reason instanceof Error ? reason.message : 'Не удалось позвать близкого.');
+    }
+  }
   async function shareAgain() {
     if (!assist) return;
     setAssistError('');
     try { const invite = await createAssistInvite(assist.id); setInviteReady(invite); }
     catch (reason) { setAssistError(reason instanceof Error ? reason.message : 'Не удалось отправить ссылку.'); }
+  }
+  async function requestOperator(topic: 'dont_understand' | 'form_error' | 'other') {
+    if (!draft) return;
+    setAssistError('');
+    try {
+      if (consentRequired && consent) await agreeToRecording();
+      const result = await requestOperatorForApplication(draft.id, topic);
+      cacheAssistSession(queryClient, result.assist_session);
+      setAssist(result.assist_session);
+      setMode('waiting');
+    } catch (reason) {
+      if (reason instanceof ApiError && reason.code === 'recording_consent_required') { setConsentRequired(true); setAssistError('Перед подключением специалиста подтвердите согласие на запись.'); }
+      else setAssistError(reason instanceof Error ? reason.message : 'Не удалось вызвать специалиста.');
+    }
   }
   async function finishAssist() {
     if (!assist) return;
@@ -146,11 +178,14 @@ export default function App() {
   if (!user) return null;
 
   return <AppShell onBack={shellBack}>
-    {mode === 'home' && <Home user={user} launchIntent={launchIntent} onOpenService={(service, existingDraft) => void openService(service, existingDraft)} />}
+    {mode === 'home' && <Home user={user} launchIntent={launchIntent} onOpenService={(service, existingDraft) => void openService(service, existingDraft)} onOpenOperatorQueue={user.staff ? () => setMode('operator-queue') : undefined} onOpenTrustedHelpers={() => setMode('trusted-helpers')} />}
+    {mode === 'trusted-helpers' && <T1TrustedHelpers />}
+    {mode === 'pairing-invite' && inviteToken && <T4PairingInvite token={inviteToken} onHome={backToHome} />}
+    {mode === 'operator-queue' && <O1OperatorQueue onClaim={(id) => { setAssist({ id } as AssistSession); setMode('helper-active'); }} />}
     {mode === 'service' && definition && <S2ServiceCard service={definition} draft={draft} onStart={() => void beginService()} />}
     {mode === 'form' && definition && draft && <S3Form definition={definition} initialSession={draft} onSessionChange={setDraft} onConfirmation={(next) => { setDraft(next); setMode('confirmation'); }} assist={assist ? { status: realtime.snapshot?.session.status ?? assist.status, helpers: realtime.snapshot?.session.participants.filter((item) => item.role !== 'owner').length ?? 0, connection: realtime.connection } : null} onNeedHelp={() => { setConsent(false); setConsentRequired(false); setAssistError(''); setMode('help-options'); }} onOpenWaiting={() => setMode('waiting')} />}
-    {mode === 'help-options' && <S4HelpOptions consentRequired={consentRequired} consent={consent} busy={createAssist.isPending} error={assistError} onConsentChange={setConsent} onSendLink={() => void createAndShare()} onClose={() => setMode('form')} />}
-    {mode === 'waiting' && assist && <S5Waiting session={assist} connection={realtime.connection} onShareAgain={() => void shareAgain()} onContinue={() => setMode('form')} onEnd={() => void finishAssist()} />}
+    {mode === 'help-options' && <S4HelpOptions consentRequired={consentRequired} consent={consent} busy={createAssist.isPending} error={assistError} onConsentChange={setConsent} onSendLink={() => void createAndShare()} onCallTrusted={(id) => void callTrusted(id)} onRequestOperator={(topic) => void requestOperator(topic)} onClose={() => setMode('form')} />}
+    {mode === 'waiting' && assist && <S5Waiting session={assist} connection={realtime.connection} operatorRequest={realtime.snapshot?.operator_request} onShareAgain={() => void shareAgain()} onContinue={() => setMode('form')} onEnd={() => void finishAssist()} />}
     {mode === 'confirmation' && draft && <S7Confirmation session={draft} onBack={(next) => { setDraft(next); setMode('form'); }} onSubmitted={(next) => { setResult(next); setMode('submitted'); }} />}
     {mode === 'submitted' && result && <S8Submitted result={result} onHome={backToHome} />}
     {mode === 'helper-invite' && inviteToken && <H1Invite token={inviteToken} consentRequired={consentRequired} consent={consent} busy={false} error={assistError} onConsentChange={setConsent} onAccept={() => void acceptInvite()} onHome={backToHome} onOwnerSession={(id) => { setAssist({ id } as AssistSession); setMode('waiting'); }} />}

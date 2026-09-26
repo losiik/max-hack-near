@@ -12,6 +12,8 @@ interface HomeProps {
   user: AuthUser;
   launchIntent: LaunchIntent;
   onOpenService: (service: ServiceSummary, draft?: ServiceSession) => void;
+  onOpenOperatorQueue?: () => void;
+  onOpenTrustedHelpers: () => void;
 }
 
 function TrashIcon() {
@@ -28,7 +30,7 @@ function sessionStatus(session: ServiceSession): string {
   return `Черновик · шаг ${session.current_step.index} из ${session.total_steps}`;
 }
 
-export function Home({ user, launchIntent, onOpenService }: HomeProps) {
+export function Home({ user, launchIntent, onOpenService, onOpenOperatorQueue, onOpenTrustedHelpers }: HomeProps) {
   const queryClient = useQueryClient();
   const [deleteCandidate, setDeleteCandidate] = useState<ServiceSession | null>(null);
   const services = useQuery({ queryKey: queryKeys.services(), queryFn: servicesQuery, ...queryPolicy });
@@ -71,6 +73,9 @@ export function Home({ user, launchIntent, onOpenService }: HomeProps) {
         />
         <div className="home-hero__signal"><StatusMark tone="positive" /><Typography.Text>Можно начать сейчас</Typography.Text></div>
       </section>
+
+      {user.staff && <Button size="small" stretched variant="secondary" onClick={onOpenOperatorQueue}>Открыть очередь МФЦ</Button>}
+      <Button size="small" stretched variant="secondary" onClick={onOpenTrustedHelpers}>Мои близкие</Button>
 
       {error && (
         <div className="notice notice--error">

@@ -1,9 +1,10 @@
 import { Button, Flex, Typography } from '@maxhub/max-ui';
-import { useRef, useState, type PointerEvent } from 'react';
+import { Fragment, useRef, useState, type PointerEvent } from 'react';
 import type { ProjectedState } from '../api/client';
 import { AnnotationToolbar, type AnnotationKind } from '../components/AnnotationToolbar';
 import { ProjectedField } from '../components/ProjectedField';
 import { ScreenIntro, StatusMark } from '../components/ScreenIntro';
+import { ParticipantBadge } from '../components/ParticipantBadge';
 import { useAssistStore } from '../realtime/assistStore';
 
 export function H3Helper({ snapshot, connection, onLeave }: { snapshot: ProjectedState; connection: string; onLeave: () => void }) {
@@ -14,6 +15,8 @@ export function H3Helper({ snapshot, connection, onLeave }: { snapshot: Projecte
   const [label, setLabel] = useState('Нажмите сюда');
   const lastPointerAt = useRef(0);
   const canAnnotate = Boolean(sendCommand && snapshot.session.me.capabilities.includes('annotate'));
+  const me = snapshot.session.participants.find((participant) => participant.id === snapshot.session.me.participant_id);
+  const canSeeHints = snapshot.session.me.capabilities.includes('view_operator_hints');
 
   function point(elementId: string, event: PointerEvent<HTMLElement>) {
     if (kind !== 'pointer' || !sendCommand || Date.now() - lastPointerAt.current < 100) return;
@@ -29,12 +32,14 @@ export function H3Helper({ snapshot, connection, onLeave }: { snapshot: Projecte
   return (
     <Flex direction="column" gap={12}>
       <ScreenIntro eyebrow={`Вы помогаете ${owner.display_name}`} title={snapshot.current_step.title} meta={`Шаг ${snapshot.current_step.index} из ${snapshot.service.total_steps}`} />
+      {me && <ParticipantBadge participant={me} />}
+      {canSeeHints && snapshot.current_step.operator_hint && <div className="notice notice--subtle"><Typography.Label>Подсказка специалисту</Typography.Label><Typography.Text>{snapshot.current_step.operator_hint}</Typography.Text></div>}
       {connection === 'reconnecting' && <div className="notice notice--subtle">Восстанавливаем соединение…</div>}
       {snapshot.session.recording?.status === 'recording' && <div className="recording-state"><StatusMark tone="attention" /><Typography.Text>Идёт запись</Typography.Text></div>}
       {confusionElementId && <div className="notice notice--subtle">{owner.display_name} просит подсказать по полю «{snapshot.current_step.elements.find((element) => element.id === confusionElementId)?.label ?? 'этому полю'}».</div>}
       {canAnnotate && <AnnotationToolbar kind={kind} label={label} onKindChange={setKind} onLabelChange={setLabel} onClear={() => sendCommand?.('annotation.clear', {})} />}
       <Flex direction="column" gap={12}>
-        {snapshot.current_step.elements.map((element) => (
+        {snapshot.current_step.elements.map((element) => <Fragment key={element.id}>
           <ProjectedField
             key={element.id}
             element={element}
@@ -44,7 +49,8 @@ export function H3Helper({ snapshot, connection, onLeave }: { snapshot: Projecte
             onPointer={kind === 'pointer' ? point : undefined}
             onPointerEnd={kind === 'pointer' ? () => sendCommand?.('annotation.pointer', { visible: false }) : undefined}
           />
-        ))}
+          {canSeeHints && element.operator_hint && <Typography.Text className="operator-hint">Подсказка: {element.operator_hint}</Typography.Text>}
+        </Fragment>)}
       </Flex>
       <Button size="small" stretched variant="destructive" onClick={onLeave}>Выйти из помощи</Button>
     </Flex>
