@@ -64,6 +64,8 @@ services:
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://localhost:3000}
       MAX_BOT_TOKEN: ${MAX_BOT_TOKEN:-}
       MAX_BOT_USERNAME: ${MAX_BOT_USERNAME:-t562_hakaton_max_bot}
+      YANDEX_API_KEY: ${YANDEX_API_KEY:-}
+      YANDEX_FOLDER_ID: ${YANDEX_FOLDER_ID:-}
       LIVEKIT_URL: ${LIVEKIT_URL:-ws://localhost:7880}
       LIVEKIT_API_URL: http://livekit:7880
       LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-devkey}
@@ -109,6 +111,30 @@ services:
         limits:
           cpus: "1.0"
           memory: 512m
+
+  # цифровой сотрудник: сам приходит в комнату, когда backend его вызывает
+  agent:
+    build: ./agent
+    restart: unless-stopped
+    environment:
+      LIVEKIT_URL: ws://livekit:7880
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-devkey}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-dev-livekit-secret-change-me-32-bytes}
+      BACKEND_URL: http://api:8000
+      YANDEX_API_KEY: ${YANDEX_API_KEY:-}
+      YANDEX_FOLDER_ID: ${YANDEX_FOLDER_ID:-}
+      AI_LLM_MODEL: ${AI_LLM_MODEL:-qwen3-235b-a22b-fp8/latest}
+      AI_VOICE: ${AI_VOICE:-dasha}
+    depends_on:
+      - livekit
+      - api
+    stop_grace_period: 30s
+    logging: *logging
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1g
 
   # записывает разговор в ./recordings, внутри запускает браузер без окна
   egress:

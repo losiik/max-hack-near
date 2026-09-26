@@ -46,6 +46,7 @@ def test_all_tables_are_registered_for_migrations():
         "assist_participants",
         "assist_invites",
         "session_events",
+        "ai_agent_turns",
     }
 
 

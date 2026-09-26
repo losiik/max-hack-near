@@ -10,6 +10,7 @@ from max_assist.modules.assist.models import AssistSession
 from max_assist.modules.identity.models import User
 from max_assist.modules.support_desk import queries
 from max_assist.modules.support_desk.models import OperatorRequest
+from max_assist.security import AgentPass
 from max_assist.utils import now
 
 
@@ -31,6 +32,39 @@ async def add_request(
     session.add(request)
     assist_domain.touch(assist)
     journal.note(session, assist.id, "operator.requested", {"topic": topic})
+    return request
+
+
+async def request_by_agent(
+    session: AsyncSession,
+    agent: AgentPass,
+    assist_id: UUID,
+    topic: str,
+    summary: str | None,
+) -> OperatorRequest:
+    # цифровой сотрудник не справился и зовёт человека, резюме увидит сотрудник в очереди
+    if agent.assist_session_id != assist_id:
+        raise NotFound("Помощь не найдена")
+    assist = await session.get(AssistSession, assist_id, with_for_update=True)
+    assist_domain.require_open(assist)
+    agent_participant = assist_domain.ai_agent_of(assist)
+    if agent_participant is None or agent_participant.id != agent.participant_id:
+        raise Forbidden("Цифровой сотрудник уже не во встрече")
+    if await queries.open_request(session, assist.id) is not None:
+        raise Conflict("operator_request_exists", "Сотрудник уже вызван")
+
+    request = OperatorRequest(
+        assist_session_id=assist.id,
+        source="ai_escalation",
+        status="queued",
+        topic=topic,
+        context={"ai_summary": summary} if summary else {},
+    )
+    session.add(request)
+    assist_domain.touch(assist)
+    journal.note(session, assist.id, "operator.requested", {"topic": topic, "source": "ai_escalation"})
+    await session.commit()
+    await announce_queue(session)
     return request
 
 

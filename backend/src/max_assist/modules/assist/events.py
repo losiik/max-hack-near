@@ -116,14 +116,14 @@ def status_changed(assist: AssistSession, participant: AssistParticipant) -> dic
     )
 
 
-async def snapshot(db: AsyncSession, assist: AssistSession, viewer_id: UUID) -> dict[str, Any]:
-    view = await snapshot_view(db, assist, viewer_id)
+async def snapshot(db: AsyncSession, assist: AssistSession, participant: AssistParticipant) -> dict[str, Any]:
+    view = await snapshot_view(db, assist, participant.user_id, participant)
     return envelope(assist.id, "session.snapshot", view.model_dump(mode="json"))
 
 
 async def greeting(db: AsyncSession, assist: AssistSession, participant: AssistParticipant) -> dict[str, Any]:
     if participant.status == "active":
-        return await snapshot(db, assist, participant.user_id)
+        return await snapshot(db, assist, participant)
 
     owner = await db.get(User, assist.owner_id)
     _, definition = await application_of(db, assist)
@@ -208,7 +208,7 @@ async def joined(
         )
 
     deliveries.append(Delivery([participant.id], status_changed(assist, participant)))
-    deliveries.append(Delivery([participant.id], await snapshot(db, assist, participant.user_id)))
+    deliveries.append(Delivery([participant.id], await snapshot(db, assist, participant)))
     return deliveries
 
 
@@ -239,6 +239,22 @@ def left(assist: AssistSession, participant: AssistParticipant) -> list[Delivery
                 assist.id,
                 "participant.left",
                 {"participant_id": str(participant.id), "reason": "left"},
+                next_seq(assist),
+                actor_of(participant),
+            ),
+        ),
+        Delivery([participant.id], close_code=CLOSE_NORMAL),
+    ]
+
+
+def agent_left(assist: AssistSession, participant: AssistParticipant, reason: str) -> list[Delivery]:
+    return [
+        Delivery(
+            active_ids(assist),
+            envelope(
+                assist.id,
+                "participant.left",
+                {"participant_id": str(participant.id), "reason": reason},
                 next_seq(assist),
                 actor_of(participant),
             ),

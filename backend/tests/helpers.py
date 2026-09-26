@@ -2,7 +2,8 @@ import re
 
 from sqlalchemy import delete, select
 
-from max_assist.db import session_factory
+from max_assist import tasks
+from max_assist.db import engine, session_factory
 from max_assist.modules.applications.models import ServiceSession
 from max_assist.modules.identity.models import User
 
@@ -26,6 +27,12 @@ STEP_VALUES = {
 }
 
 ALL_VALUES = {key: value for step in STEP_VALUES.values() for key, value in step.items()}
+
+
+async def settle():
+    await tasks.wait_background()
+    assert engine.pool.checkedout() == 0, "после закрытия сокетов соединение с базой осталось занятым"
+    await engine.dispose()
 
 
 async def forget_user(dev_key: str | None = None, max_user_id: int | None = None):

@@ -4,28 +4,11 @@ import re
 from uuid import uuid4
 
 import pytest
-from starlette.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
-from max_assist import tasks
-from max_assist.db import engine
-from max_assist.main import app
-from tests.helpers import STEP_VALUES
+from tests.helpers import STEP_VALUES, settle
 
 SECRET_ADDRESS = "Тайная улица, дом 7731"
-
-
-async def settle():
-    await tasks.wait_background()
-    assert engine.pool.checkedout() == 0, "после закрытия сокетов соединение с базой осталось занятым"
-    await engine.dispose()
-
-
-@pytest.fixture
-def api():
-    with TestClient(app) as client:
-        yield client
-        client.portal.call(settle)
 
 
 def login(api, user_key):

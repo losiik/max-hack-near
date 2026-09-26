@@ -40,6 +40,13 @@ def on_published(assist_id: UUID, deliveries: list[Delivery]) -> None:
             run_in_background(close(assist_id))
 
 
+async def call_agent(assist_id: UUID, metadata: str) -> None:
+    # комната должна появиться раньше, чем агент в неё войдёт; ошибку отдаём наверх
+    async with room_locks[assist_id]:
+        await rooms.open(str(assist_id))
+        await rooms.call_agent(str(assist_id), metadata)
+
+
 async def close(assist_id: UUID) -> None:
     await in_turn(assist_id, partial(rooms.close, str(assist_id)), "close")
     room_locks.pop(assist_id, None)

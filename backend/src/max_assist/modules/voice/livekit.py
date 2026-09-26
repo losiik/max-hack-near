@@ -65,6 +65,13 @@ class Rooms:
                 )
             )
 
+    async def call_agent(self, room: str, metadata: str) -> None:
+        # агент приходит в комнату по вызову, в метаданных — его токен для нашего API
+        async with self.client() as client:
+            await client.agent_dispatch.create_dispatch(
+                api.CreateAgentDispatchRequest(agent_name=settings.agent_name, room=room, metadata=metadata)
+            )
+
     async def remove(self, room: str, identity: str) -> None:
         async with self.client() as client:
             await skip_missing(

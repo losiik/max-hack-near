@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from max_assist.db import session_factory
 from max_assist.errors import Unauthorized
 from max_assist.modules.identity.models import User
-from max_assist.security import read_access_token
+from max_assist.security import AgentPass, read_access_token, read_agent_token
 from max_assist.utils import now
 
 bearer = HTTPBearer(auto_error=False)
@@ -52,6 +52,30 @@ async def get_listener(
     raise Unauthorized()
 
 
+async def get_caller(
+    session: Annotated[AsyncSession, Depends(get_session)],
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)],
+) -> User | AgentPass:
+    # некоторые запросы делает и человек, и цифровой сотрудник со своим токеном
+    if credentials is None:
+        raise Unauthorized()
+    agent = read_agent_token(credentials.credentials)
+    if agent is not None:
+        return agent
+    return await get_current_user(session, credentials)
+
+
+async def get_agent(
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)],
+) -> AgentPass:
+    agent = read_agent_token(credentials.credentials) if credentials else None
+    if agent is None:
+        raise Unauthorized("Нужен токен цифрового сотрудника")
+    return agent
+
+
 DbSession = Annotated[AsyncSession, Depends(get_session)]
 CurrentUser = Annotated[User, Depends(get_current_user)]
 Listener = Annotated[User, Depends(get_listener)]
+Caller = Annotated[User | AgentPass, Depends(get_caller)]
+CurrentAgent = Annotated[AgentPass, Depends(get_agent)]

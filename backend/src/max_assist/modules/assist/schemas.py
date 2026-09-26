@@ -390,12 +390,18 @@ async def users_by_id(db: AsyncSession, ids: set[UUID | None]) -> dict[UUID, Use
     return {row.id: row for row in rows}
 
 
-async def session_view(db: AsyncSession, assist: AssistSession, viewer_id: UUID) -> AssistSessionOut:
+async def session_view(
+    db: AsyncSession,
+    assist: AssistSession,
+    viewer_id: UUID | None,
+    me: AssistParticipant | None = None,
+) -> AssistSessionOut:
+    # у цифрового сотрудника нет пользователя, поэтому его участника передают напрямую
     service_session, definition = await application_of(db, assist)
     live = [item for item in assist.participants if item.status in domain.LIVE_STATUSES]
     users = await users_by_id(db, {assist.owner_id, *(item.user_id for item in live)})
     owner = users[assist.owner_id]
-    me = domain.participant_of(assist, viewer_id)
+    me = me or domain.participant_of(assist, viewer_id)
     online = hub.online(assist.id)
 
     return AssistSessionOut(
@@ -699,15 +705,20 @@ def annotation_out(annotation: Annotation, assist: AssistSession) -> AnnotationO
     )
 
 
-async def snapshot_view(db: AsyncSession, assist: AssistSession, viewer_id: UUID) -> SnapshotOut:
+async def snapshot_view(
+    db: AsyncSession,
+    assist: AssistSession,
+    viewer_id: UUID | None,
+    me: AssistParticipant | None = None,
+) -> SnapshotOut:
     service_session, definition = await application_of(db, assist)
-    me = domain.participant_of(assist, viewer_id)
+    me = me or domain.participant_of(assist, viewer_id)
     state = project(definition, application_snapshot(service_session), me.role)
     annotations = [annotation_out(item, assist) for item in board.active(assist.id)]
 
     return SnapshotOut(
         last_seq=assist.last_seq,
-        session=await session_view(db, assist, viewer_id),
+        session=await session_view(db, assist, viewer_id, me),
         annotations=[item for item in annotations if item is not None],
         operator_request=await support_queries.current(db, assist.id),
         **dict(state),

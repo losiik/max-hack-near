@@ -1,0 +1,4 @@
+livekit-agents[openai,silero]==1.8.2
+httpx==0.28.1
+websockets==15.0.1
+yandexcloud==0.408.0

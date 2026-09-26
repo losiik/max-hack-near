@@ -3,16 +3,17 @@ from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from max_assist.deps import CurrentUser, DbSession
+from max_assist.deps import Caller, CurrentUser, DbSession
 from max_assist.modules.applications import service as applications_service
 from max_assist.modules.assist.models import AssistSession
 from max_assist.modules.assist.schemas import AssistSessionOut, session_view
 from max_assist.modules.identity.models import User
 from max_assist.modules.support_desk import queries, service
 from max_assist.modules.support_desk.models import OperatorRequest
+from max_assist.security import AgentPass
 from max_assist.utils import now
 
 router = APIRouter(tags=["support_desk"])
@@ -22,6 +23,8 @@ Topic = Literal["dont_understand", "form_error", "other"]
 
 class OperatorRequestIn(BaseModel):
     topic: Topic
+    # резюме передаёт только цифровой сотрудник
+    summary: str | None = Field(None, max_length=500)
 
 
 class OperatorRequestOut(BaseModel):
@@ -111,10 +114,13 @@ async def queue_item(db: AsyncSession, request: OperatorRequest) -> QueueItemOut
 async def request_operator(
     assist_id: UUID,
     payload: OperatorRequestIn,
-    user: CurrentUser,
+    caller: Caller,
     db: DbSession,
 ) -> OperatorRequestOut:
-    await service.request_operator(db, user, assist_id, payload.topic)
+    if isinstance(caller, AgentPass):
+        await service.request_by_agent(db, caller, assist_id, payload.topic, payload.summary)
+    else:
+        await service.request_operator(db, caller, assist_id, payload.topic)
     return await request_view(db, assist_id)
 
 

@@ -42,6 +42,12 @@ class Settings(BaseSettings):
     voice_token_ttl_seconds: int = 120
     recordings_dir: str = str(Path(__file__).resolve().parents[3] / "recordings")
 
+    agent_name: str = "digital-employee"
+    agent_token_ttl_hours: int = 2
+    agent_join_timeout_seconds: int = 30
+    yandex_api_key: str = ""
+    yandex_folder_id: str = ""
+
     @property
     def is_dev(self) -> bool:
         return self.app_env == "dev"

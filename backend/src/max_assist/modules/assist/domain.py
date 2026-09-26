@@ -12,9 +12,12 @@ INVITE_TTL = timedelta(minutes=30)
 MAX_ACTIVE_HELPERS = 2
 LIVE_STATUSES = {"pending", "active"}
 
+AI_AGENT_NAME = "Цифровой сотрудник"
+
 BADGES = {
     "trusted_helper": "Доверенный помощник",
     "invited_helper": "Помощник по ссылке",
+    "ai_agent": "Цифровой сотрудник",
 }
 
 VIEW = {"view_step", "view_structure", "view_public_values", "view_validation_errors"}
@@ -307,6 +310,50 @@ def add_operator(session: AssistSession, user: User) -> AssistParticipant:
     participant.requested_at = now()
     participant.left_at = None
     activate(session, participant)
+    touch(session)
+    return participant
+
+
+def ai_agent_of(session: AssistSession) -> AssistParticipant | None:
+    return next((item for item in active_helpers(session) if item.role == "ai_agent"), None)
+
+
+def add_ai_agent(session: AssistSession, actor: User) -> AssistParticipant:
+    require_owner(session, actor)
+    require_open(session)
+    if ai_agent_of(session) is not None:
+        raise Conflict("ai_agent_exists", "Цифровой сотрудник уже во встрече")
+    # два помощника, говорящие одновременно, только путают человека
+    if any(item.kind == "human" for item in active_helpers(session)):
+        raise Conflict("human_helper_present", "Вам уже помогает человек")
+    require_helper_slot(session)
+    require_recording_consent(actor)
+
+    participant = AssistParticipant(
+        id=uuid.uuid4(),
+        user_id=None,
+        kind="ai",
+        role="ai_agent",
+        joined_via="ai",
+        display_name=AI_AGENT_NAME,
+        badge_label=BADGES["ai_agent"],
+        badge_verified=True,
+        requested_at=now(),
+    )
+    session.participants.append(participant)
+    activate(session, participant)
+    touch(session)
+    return participant
+
+
+def remove_ai_agent(session: AssistSession) -> AssistParticipant:
+    require_open(session)
+    participant = ai_agent_of(session)
+    if participant is None:
+        raise NotFound("Цифровой сотрудник не подключён")
+
+    participant.status = "left"
+    participant.left_at = now()
     touch(session)
     return participant
 

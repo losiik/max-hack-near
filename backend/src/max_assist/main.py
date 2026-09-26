@@ -10,6 +10,7 @@ from max_assist import maintenance, tasks
 from max_assist.config import settings
 from max_assist.db import engine, session_factory
 from max_assist.errors import register_error_handlers
+from max_assist.modules.ai_assistant.router import router as ai_router
 from max_assist.modules.applications import service as applications_service
 from max_assist.modules.applications.router import router as applications_router
 from max_assist.modules.assist import events as assist_events
@@ -80,6 +81,7 @@ api.include_router(notifications_router)
 api.include_router(voice_router)
 api.include_router(support_router)
 api.include_router(trust_router)
+api.include_router(ai_router)
 app.include_router(api)
 app.include_router(assist_ws_router)
 

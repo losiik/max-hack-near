@@ -1,3 +1,4 @@
+from max_assist.modules.ai_assistant.models import AgentTurn
 from max_assist.modules.applications.models import ServiceSession, ServiceSessionInbox
 from max_assist.modules.assist.models import (
     AssistInvite,
@@ -13,6 +14,7 @@ from max_assist.modules.trust.models import Pairing, TrustedHelper
 from max_assist.modules.voice.models import Recording
 
 __all__ = [
+    "AgentTurn",
     "AssistInvite",
     "AssistParticipant",
     "AssistSession",
