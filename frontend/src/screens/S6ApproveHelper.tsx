@@ -1,5 +1,6 @@
-import { Button, Flex, Typography } from '@maxhub/max-ui';
+import { Flex, Typography } from '@maxhub/max-ui';
 import { AppDialog } from '../components/AppDialog';
+import { InlineAction } from '../components/InlineAction';
 import { ScreenIntro } from '../components/ScreenIntro';
 
 interface S6ApproveHelperProps {
@@ -17,8 +18,8 @@ export function S6ApproveHelper({ helper, busy, error, onApprove, onReject }: S6
         <ScreenIntro eyebrow="Новый помощник" title={helper.max_username ? `@${helper.max_username}` : 'Пользователь MAX'} />
         <div className="warning-note">Разрешайте подключение только знакомым лично людям. Если кто-то просит добавить помощника по телефону — это может быть мошенничество.</div>
         {error && <div className="notice notice--error">{error}</div>}
-        <Button size="small" stretched disabled={busy} onClick={onApprove}>{busy ? 'Подключаем…' : 'Разрешить'}</Button>
-        <Button size="small" stretched variant="destructive" disabled={busy} onClick={onReject}>Отклонить</Button>
+        <InlineAction title="Разрешить подключение" description="Помощник увидит только доступные ему поля." action="Разрешить" disabled={busy} loading={busy} onClick={onApprove} />
+        <InlineAction title="Не разрешать" description="Подключение не состоится." action="Отклонить" variant="destructive" disabled={busy} onClick={onReject} />
       </Flex>
     </AppDialog>
   );

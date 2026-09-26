@@ -2,6 +2,15 @@ import { useEffect } from 'react';
 import { getAccessToken } from '../api/client';
 import { useAssistStore, type AssistEnvelope } from './assistStore';
 
+const ACK_COMMANDS = new Set([
+  'annotation.highlight',
+  'annotation.frame',
+  'annotation.circle',
+  'annotation.arrow',
+  'annotation.clear',
+  'owner.flag_confusion',
+]);
+
 function websocketUrl(sessionId: string): string {
   const url = new URL(`/ws/assist/${sessionId}`, window.location.origin);
   url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -37,9 +46,10 @@ export function useAssistSocket(sessionId: string | null): void {
         store.getState().setConnection('connected');
         store.getState().setSender((command, payload) => {
           if (socket?.readyState !== WebSocket.OPEN) return null;
-          const requestId = crypto.randomUUID();
-          if (command.startsWith('annotation.')) store.getState().setAnnotationFeedback({ state: 'sending', message: 'Показываем владельцу…', requestId });
-          socket.send(JSON.stringify({ command, payload, request_id: requestId }));
+          const expectsAck = ACK_COMMANDS.has(command);
+          const requestId = expectsAck ? crypto.randomUUID() : null;
+          if (requestId) store.getState().setAnnotationFeedback({ state: 'sending', message: 'Показываем владельцу…', requestId });
+          socket.send(JSON.stringify({ command, payload, ...(requestId ? { request_id: requestId } : {}) }));
           return requestId;
         });
         pingTimer = window.setInterval(() => {

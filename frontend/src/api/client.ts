@@ -383,6 +383,10 @@ export function getServiceSessions(signal?: AbortSignal): Promise<ServiceSession
   return request<ServiceSession[]>('/service-sessions', { signal });
 }
 
+export function getServiceSession(id: string, signal?: AbortSignal): Promise<ServiceSession> {
+  return request<ServiceSession>(`/service-sessions/${id}`, { signal });
+}
+
 export function startServiceSession(serviceCode: string): Promise<ServiceSession> {
   return request<ServiceSession>('/service-sessions', {
     method: 'POST',
@@ -437,6 +441,8 @@ export function createAssistSession(serviceSessionId: string): Promise<AssistSes
     body: JSON.stringify({ service_session_id: serviceSessionId }),
   });
 }
+export function callDigitalEmployee(serviceSessionId: string): Promise<{ assist_session: AssistSession }> { return request(`/service-sessions/${serviceSessionId}/ai-agent`, { method: 'POST' }); }
+export function releaseDigitalEmployee(assistId: string): Promise<void> { return request<void>(`/assist-sessions/${assistId}/ai-agent`, { method: 'DELETE' }); }
 
 export function getActiveAssistSessions(signal?: AbortSignal): Promise<ActiveAssist[]> {
   return request<ActiveAssist[]>('/assist-sessions?scope=active', { signal });

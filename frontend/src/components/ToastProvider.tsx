@@ -11,7 +11,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     window.setTimeout(() => setToast(null), 4_000);
   }, []);
   const value = useMemo(() => show, [show]);
-  return <ToastContext.Provider value={value}>{children}{toast && createPortal(<div className={`app-toast app-toast--${toast.tone}`} role="status">{toast.message}</div>, document.body)}</ToastContext.Provider>;
+  // Keep the toast inside the Max UI theme root so its light/dark variables
+  // remain available, while the fixed layer and high z-index keep it above
+  // screens and dialogs.
+  const portalTarget = document.querySelector<HTMLElement>('[class*="MaxUI__"]') ?? document.body;
+  return <ToastContext.Provider value={value}>{children}{toast && createPortal(<div className={`app-toast app-toast--${toast.tone}`} role="status" aria-live="polite"><span aria-hidden="true">{toast.tone === 'error' ? '!' : '✓'}</span><span>{toast.message}</span></div>, portalTarget)}</ToastContext.Provider>;
 }
 
 export function useToast(): (message: string, tone?: ToastTone) => void {

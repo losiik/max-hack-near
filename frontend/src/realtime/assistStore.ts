@@ -42,6 +42,7 @@ interface AssistRealtimeState {
   pointer: AssistPointer | null;
   confusionElementId: string | null;
   inviteDeclined: boolean;
+  rejected: boolean;
   annotationFeedback: AnnotationFeedback | null;
   lastSeq: number;
   error: string | null;
@@ -70,19 +71,20 @@ export const useAssistStore = create<AssistRealtimeState>((set, get) => ({
   pointer: null,
   confusionElementId: null,
   inviteDeclined: false,
+  rejected: false,
   annotationFeedback: null,
   lastSeq: 0,
   error: null,
   sendCommand: null,
   begin: (sessionId) => {
     if (get().sessionId === sessionId) return;
-    set({ sessionId, connection: 'connecting', snapshot: null, pending: null, joinRequest: null, endedReason: null, pointer: null, confusionElementId: null, inviteDeclined: false, annotationFeedback: null, lastSeq: 0, error: null, sendCommand: null });
+    set({ sessionId, connection: 'connecting', snapshot: null, pending: null, joinRequest: null, endedReason: null, pointer: null, confusionElementId: null, inviteDeclined: false, rejected: false, annotationFeedback: null, lastSeq: 0, error: null, sendCommand: null });
   },
   setConnection: (connection, error = null) => set({ connection, error }),
   setSender: (sendCommand) => set({ sendCommand }),
   setAnnotationFeedback: (annotationFeedback) => set({ annotationFeedback }),
   clearJoinRequest: () => set({ joinRequest: null }),
-  reset: () => set({ sessionId: null, connection: 'idle', snapshot: null, pending: null, joinRequest: null, endedReason: null, pointer: null, confusionElementId: null, inviteDeclined: false, annotationFeedback: null, lastSeq: 0, error: null, sendCommand: null }),
+  reset: () => set({ sessionId: null, connection: 'idle', snapshot: null, pending: null, joinRequest: null, endedReason: null, pointer: null, confusionElementId: null, inviteDeclined: false, rejected: false, annotationFeedback: null, lastSeq: 0, error: null, sendCommand: null }),
   receive: (message) => {
     const state = get();
     if (message.session_id && state.sessionId && message.session_id !== state.sessionId) return;
@@ -90,7 +92,7 @@ export const useAssistStore = create<AssistRealtimeState>((set, get) => ({
 
     if (message.event === 'session.snapshot') {
       const snapshot = message.payload as unknown as ProjectedState;
-      set({ snapshot, pending: null, lastSeq: snapshot.last_seq, connection: 'connected', error: null });
+      set({ snapshot, pending: null, rejected: false, lastSeq: snapshot.last_seq, connection: 'connected', error: null });
       return;
     }
     if (message.event === 'session.pending') {
@@ -102,7 +104,7 @@ export const useAssistStore = create<AssistRealtimeState>((set, get) => ({
     const snapshot = state.snapshot;
     if (message.event === 'ack') {
       const requestId = String(message.payload.request_id ?? '');
-      if (state.annotationFeedback?.requestId === requestId) set({ annotationFeedback: { state: 'sent', message: 'Пометка показана владельцу', requestId } });
+      if (state.annotationFeedback?.requestId === requestId) set({ annotationFeedback: { state: 'sent', message: 'Пометка отправлена', requestId } });
       return;
     }
     if (message.event === 'error') {
@@ -122,6 +124,29 @@ export const useAssistStore = create<AssistRealtimeState>((set, get) => ({
       const participant = message.payload.participant as JoinRequest | undefined;
       set({ joinRequest: participant ?? null, lastSeq: nextSeq });
       return;
+    }
+    if (message.event === 'session.activated') {
+      const startedAt = typeof message.payload.started_at === 'string' ? message.payload.started_at : undefined;
+      set({
+        snapshot: snapshot
+          ? { ...snapshot, session: { ...snapshot.session, status: 'active', ...(startedAt ? { started_at: startedAt } : {}) } }
+          : snapshot,
+        pending: null,
+        rejected: false,
+        lastSeq: nextSeq,
+      });
+      return;
+    }
+    if (message.event === 'participant.status_changed' && state.pending) {
+      const status = String(message.payload.status ?? '');
+      if (status === 'rejected') {
+        set({ pending: null, rejected: true, lastSeq: nextSeq });
+        return;
+      }
+      if (status === 'active') {
+        set({ pending: null, lastSeq: nextSeq });
+        return;
+      }
     }
     if (!snapshot) {
       set({ lastSeq: nextSeq });

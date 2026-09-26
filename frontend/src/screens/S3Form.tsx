@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Button, Flex, IconButton, Typography } from '@maxhub/max-ui';
+import { Button, Flex, Typography } from '@maxhub/max-ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { FormRenderer } from '../components/FormRenderer';
 import { AnnotationLayer } from '../components/AnnotationLayer';
@@ -16,34 +16,32 @@ import { ScreenIntro, StatusMark } from '../components/ScreenIntro';
 import { useAssistStore } from '../realtime/assistStore';
 import { VoiceControl } from '../components/VoiceControl';
 import { PastHelpBanner } from '../components/PastHelpBanner';
+import { AppDialog, ConfirmDialog } from '../components/AppDialog';
+import { InlineAction } from '../components/InlineAction';
 
 type SaveState = 'saved' | 'saving' | 'error';
-
-function ArrowLeftIcon() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="m14.5 5-7 7 7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
 
 interface S3FormProps {
   definition: ServiceDefinition;
   initialSession: ServiceSession;
   onSessionChange: (session: ServiceSession) => void;
   onConfirmation: (session: ServiceSession) => void;
-  assist?: { id: string; status: string; helpers: number; connection: string; recording: boolean } | null;
+  assist?: { id: string; status: string; helpers: number; connection: string; recording: boolean; digitalEmployee: boolean } | null;
   onNeedHelp: () => void;
   onOpenWaiting: () => void;
+  onEndAssist?: () => void;
+  onReleaseDigitalEmployee?: () => void;
 }
 
-export function S3Form({ definition, initialSession, onSessionChange, onConfirmation, assist, onNeedHelp, onOpenWaiting }: S3FormProps) {
+export function S3Form({ definition, initialSession, onSessionChange, onConfirmation, assist, onNeedHelp, onOpenWaiting, onEndAssist, onReleaseDigitalEmployee }: S3FormProps) {
   const queryClient = useQueryClient();
   const [session, setSession] = useState(initialSession);
   const [values, setValues] = useState(initialSession.values);
   const [saveState, setSaveState] = useState<SaveState>('saved');
   const [actionError, setActionError] = useState('');
   const [showConfusionOptions, setShowConfusionOptions] = useState(false);
+  const [confirmReleaseAgent, setConfirmReleaseAgent] = useState(false);
+  const [confirmEndAssist, setConfirmEndAssist] = useState(false);
   const pendingValues = useRef<Record<string, unknown>>({});
   const timer = useRef<number | undefined>(undefined);
   const sessionRef = useRef(initialSession);
@@ -157,27 +155,26 @@ export function S3Form({ definition, initialSession, onSessionChange, onConfirma
         {assist ? (
           <Flex direction="column" gap={8}>
             <Flex align="center" gap={8}><StatusMark tone={assist.status === 'active' ? 'positive' : 'attention'} /><Typography.Label>{assist.status === 'waiting' ? 'Помощь ожидает подключения' : 'Помощник рядом'}</Typography.Label></Flex>
-            <Typography.Text>{assist.status === 'waiting' ? 'Ссылка отправлена. Можно продолжать оформление.' : `${assist.helpers || 1} участник рядом с вами`}</Typography.Text>
-            {assist.status === 'active' && <VoiceControl sessionId={assist.id} />}
+            {assist.status === 'waiting' ? <Typography.Text>Ссылка отправлена. Можно продолжать оформление.</Typography.Text> : assist.helpers > 0 ? <Typography.Text>Помощников рядом: {assist.helpers}</Typography.Text> : <><Typography.Text>Помощник вышел</Typography.Text><Typography.Text className="muted-text">Сейчас к заявлению никто не подключён.</Typography.Text></>}
+            {assist.status === 'active' && <VoiceControl sessionId={assist.id} role="owner" />}
             {assist.status === 'active' && assist.recording && <Typography.Text className="recording-state">● Идёт запись</Typography.Text>}
+            {assist.status === 'active' && assist.digitalEmployee && <><Typography.Text>Цифровой сотрудник рядом — можно задать вопрос голосом.</Typography.Text><InlineAction title="Закончить разговор с агентом" action="Отпустить" variant="destructive" onClick={() => setConfirmReleaseAgent(true)} /></>}
             {assist.connection === 'reconnecting' && <Typography.Text className="assist-bar__state">Восстанавливаем соединение…</Typography.Text>}
-            <Button size="small" variant="secondary" onClick={onOpenWaiting}>{assist.status === 'waiting' ? 'Открыть ожидание' : 'Открыть помощь'}</Button>
+            {assist.status === 'waiting' && <InlineAction title="Ожидание помощи" description="Можно управлять приглашением." action="Управлять" variant="secondary" onClick={onOpenWaiting} />}
+            {assist.status === 'active' && assist.helpers === 0 && <InlineAction title="Позвать другого" description="Подключите близкого, чтобы продолжить вместе." action="Позвать" variant="secondary" onClick={onNeedHelp} />}
+            {assist.status === 'active' && <InlineAction title="Завершить помощь" description="Помощники отключатся от заявления и разговора." action="Завершить" variant="destructive" onClick={() => setConfirmEndAssist(true)} />}
             {assist.status === 'active' && Boolean(sendCommand) && confusionTargets.length > 0 && <>
               <Button size="small" variant="ghost" onClick={() => setShowConfusionOptions((open) => !open)}>Мне здесь непонятно</Button>
-              {showConfusionOptions && <div className="confusion-options">
-                <Typography.Text>Выберите поле — помощник увидит сигнал.</Typography.Text>
-                <Flex direction="column" gap={8}>{confusionTargets.map((element) => <Button key={element.id} size="small" variant="secondary" onClick={() => { sendCommand?.('owner.flag_confusion', { element_id: element.id }); setShowConfusionOptions(false); }}>{element.label}</Button>)}</Flex>
-              </div>}
+              {showConfusionOptions && <AppDialog title="Что стало непонятно?" onClose={() => setShowConfusionOptions(false)}>
+                <Typography.Text>Выберите поле — помощник увидит вашу просьбу подсказать.</Typography.Text>
+                <Flex direction="column" gap={8}>{confusionTargets.map((element) => <Button key={element.id} size="small" stretched variant="secondary" onClick={() => { sendCommand?.('owner.flag_confusion', { element_id: element.id }); setShowConfusionOptions(false); }}>{element.label}</Button>)}</Flex>
+              </AppDialog>}
             </>}
           </Flex>
         ) : (
-          <Flex direction="column" gap={12} className="assist-bar__idle-content">
-            <Flex direction="column" gap={4} className="assist-bar__copy">
-              <Typography.Label>Если станет непонятно</Typography.Label>
-              <Typography.Text>Позовите близкого — он подскажет голосом.</Typography.Text>
-            </Flex>
+          <div className="assist-bar__quick-help">
             <Button size="small" stretched onClick={onNeedHelp}>Нужна помощь</Button>
-          </Flex>
+          </div>
         )}
       </section>
 
@@ -196,19 +193,12 @@ export function S3Form({ definition, initialSession, onSessionChange, onConfirma
         {saveState === 'saving' ? 'Сохраняем…' : saveState === 'error' ? 'Изменения не сохранены' : 'Сохранено'}
       </Typography.Text>
 
-      <Flex gap={12} className="form-actions">
-        <IconButton
-          size="small"
-          variant="secondary"
-          aria-label="Назад"
-          title="Назад"
-          disabled={session.current_step.index === 1}
-          onClick={() => void navigate('back')}
-        >
-          <ArrowLeftIcon />
-        </IconButton>
-        <Button size="small" stretched onClick={() => void navigate('next')}>Далее</Button>
+      <Flex gap={8} className="form-actions">
+        <Button size="small" variant="secondary" disabled={session.current_step.index === 1} onClick={() => void navigate('back')}>Назад</Button>
+        <Button size="small" onClick={() => void navigate('next')}>Далее</Button>
       </Flex>
+      {confirmReleaseAgent && <ConfirmDialog title="Отпустить цифрового сотрудника?" description="Он выйдет из встречи и перестанет слушать вопрос. Позвать снова можно позже." confirmLabel="Отпустить" destructive onCancel={() => setConfirmReleaseAgent(false)} onConfirm={() => { setConfirmReleaseAgent(false); onReleaseDigitalEmployee?.(); }} />}
+      {confirmEndAssist && <ConfirmDialog title="Завершить помощь?" description="Помощники отключатся от заявления и разговора." confirmLabel="Завершить" destructive onCancel={() => setConfirmEndAssist(false)} onConfirm={() => { setConfirmEndAssist(false); onEndAssist?.(); }} />}
       {assist?.status === 'active' && snapshot && <AnnotationLayer annotations={snapshot.annotations} pointer={pointer} autoScroll />}
     </Flex>
   );

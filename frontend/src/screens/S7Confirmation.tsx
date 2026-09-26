@@ -12,6 +12,7 @@ import {
 import { cacheSession, demoInboxQuery, queryKeys } from '../api/queries';
 import { setScreenCaptureProtection } from '../platform/maxBridge';
 import { ScreenIntro } from '../components/ScreenIntro';
+import { useToast } from '../components/ToastProvider';
 
 interface S7ConfirmationProps {
   session: ServiceSession;
@@ -21,10 +22,11 @@ interface S7ConfirmationProps {
 
 export function S7Confirmation({ session, onBack, onSubmitted }: S7ConfirmationProps) {
   const queryClient = useQueryClient();
+  const toast = useToast();
   const [code, setCode] = useState('');
-  const [toastVisible, setToastVisible] = useState(false);
   const [error, setError] = useState('');
   const codeRequestedFor = useRef('');
+  const lastMessageId = useRef('');
   const inbox = useQuery({
     queryKey: queryKeys.demoInbox(session.id),
     queryFn: demoInboxQuery,
@@ -70,14 +72,11 @@ export function S7Confirmation({ session, onBack, onSubmitted }: S7ConfirmationP
   }, [inbox.isSuccess, issueCode, messages.length, queryClient, session.id]);
 
   useEffect(() => {
-    if (messages.length) setToastVisible(true);
-  }, [messages.length]);
-
-  useEffect(() => {
-    if (!toastVisible) return undefined;
-    const timeout = window.setTimeout(() => setToastVisible(false), 5000);
-    return () => window.clearTimeout(timeout);
-  }, [toastVisible]);
+    const latest = messages.at(-1);
+    if (!latest || latest.id === lastMessageId.current) return;
+    lastMessageId.current = latest.id;
+    toast(latest.text);
+  }, [messages, toast]);
 
   async function sendApplication() {
     setError('');
@@ -103,14 +102,7 @@ export function S7Confirmation({ session, onBack, onSubmitted }: S7ConfirmationP
       <div className="warning-note">
         Мы отправили код в SMS. Никому не сообщайте его — ни помощнику, ни сотруднику МФЦ.
       </div>
-      {toastVisible && messages.at(-1) && (
-        <div className="demo-sms demo-sms--toast">
-          <Typography.Text>{messages.at(-1)?.text}</Typography.Text>
-        </div>
-      )}
-      {messages.length > 0 && !toastVisible && (
-        <Button onClick={() => setToastVisible(true)}>Показать демо-SMS</Button>
-      )}
+      {messages.length > 0 && <Button size="small" variant="ghost" onClick={() => toast(messages.at(-1)?.text ?? '')}>Показать демо-SMS</Button>}
       {(error || inbox.error) && <div className="notice notice--error">{error || (inbox.error instanceof Error ? inbox.error.message : 'Не удалось получить код')}</div>}
       <label className="input-field">
         <span>Код из SMS</span>

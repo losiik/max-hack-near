@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Button, Flex, Typography } from '@maxhub/max-ui';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { acceptAssistInvite, agreeToRecording, ApiError, approveAssistParticipant, createAssistInvite, createAssistSession, endAssistSession, leaveAssistSession, loginWithMax, rejectAssistParticipant, requestOperatorForApplication, startServiceSession, type AssistInvite, type AssistSession, type AuthUser, type ServiceDefinition, type ServiceSession, type ServiceSummary, type SubmitResult } from './api/client';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { acceptAssistInvite, agreeToRecording, ApiError, approveAssistParticipant, callDigitalEmployee, createAssistInvite, createAssistSession, endAssistSession, leaveAssistSession, loginWithMax, rejectAssistParticipant, releaseDigitalEmployee, requestOperatorForApplication, startServiceSession, type AssistInvite, type AssistSession, type AuthUser, type ServiceDefinition, type ServiceSession, type ServiceSummary, type SubmitResult } from './api/client';
 import { InviteReadyDialog } from './components/InviteReadyDialog';
-import { cacheAssistSession, cacheSession, queryKeys, serviceQuery } from './api/queries';
+import { ConfirmDialog } from './components/AppDialog';
+import { activeAssistsQuery, assistQuery, assistStateQuery, cacheAssistSession, cacheSession, queryKeys, serviceQuery, sessionQuery } from './api/queries';
 import { AppShell } from './app/AppShell';
 import { A0 } from './screens/A0';
 import { D1 } from './screens/D1';
@@ -52,9 +53,17 @@ export default function App() {
   const [inviteReady, setInviteReady] = useState<AssistInvite | null>(null);
   const [consentRequired, setConsentRequired] = useState(false);
   const [assistError, setAssistError] = useState('');
+  const [approvalBusy, setApprovalBusy] = useState(false);
+  const [backAction, setBackAction] = useState<'helper' | 'owner' | null>(null);
   const maxUserHint = useMemo(getDisplayNameHint, []);
   const realtime = useAssistStore();
   useAssistSocket(assist?.id ?? null);
+  const helperState = useQuery({
+    queryKey: queryKeys.assistState(assist?.id ?? ''),
+    queryFn: assistStateQuery,
+    enabled: mode === 'helper-active' && Boolean(assist?.id),
+    retry: false,
+  });
   const startSession = useMutation({ mutationFn: startServiceSession, onSuccess: (session) => cacheSession(queryClient, session) });
   const createAssist = useMutation({ mutationFn: createAssistSession, onSuccess: (session) => cacheAssistSession(queryClient, session) });
 
@@ -72,18 +81,19 @@ export default function App() {
       else { setError('Откройте приложение из MAX, чтобы войти и продолжить оформление.'); setMode('error'); }
       return;
     }
-    loginWithMax(getInitData()).then((response) => {
+    loginWithMax(getInitData()).then(async (response) => {
       beginUserSession(response.user);
       if (intent.kind === 'assist_invite') { setInviteToken(intent.token); setMode('helper-invite'); }
       else if (intent.kind === 'invite_declined') { setInviteToken(intent.token); setMode('helper-busy'); }
       else if (intent.kind === 'helper_ready') { setInviteToken(intent.callbackId); setMode('helper-ready'); }
       else if (intent.kind === 'pairing') { setInviteToken(intent.token); setMode('pairing-invite'); }
-      else setMode('home');
+      else await restoreActiveAssist();
     }).catch((reason: Error) => { setError(reason.message); setMode('error'); });
   }, []);
 
   useEffect(() => {
     if (mode === 'helper-pending' && realtime.snapshot) setMode('helper-active');
+    if (mode === 'waiting' && assist?.me?.role === 'owner' && realtime.snapshot?.session.status === 'active') setMode('form');
     if (mode === 'waiting' && realtime.inviteDeclined) setMode('assist-busy');
     if (realtime.endedReason && assist && mode !== 'assist-ended') setMode('assist-ended');
   }, [assist, mode, realtime.endedReason, realtime.inviteDeclined, realtime.snapshot]);
@@ -91,6 +101,63 @@ export default function App() {
   if (mode === 'loading') return <AppShell><A0 message={maxUserHint ? `Входим как ${maxUserHint}` : undefined} /></AppShell>;
   if (mode === 'dev') return <AppShell><D1 onLogin={beginUserSession} onHome={() => setMode('home')} onLaunch={(value) => { const intent = parseStartParam(value); if (intent.kind === 'assist_invite') { setInviteToken(intent.token); setMode('helper-invite'); } else if (intent.kind === 'invite_declined') { setInviteToken(intent.token); setMode('helper-busy'); } else if (intent.kind === 'helper_ready') { setInviteToken(intent.callbackId); setMode('helper-ready'); } else if (intent.kind === 'pairing') { setInviteToken(intent.token); setMode('pairing-invite'); } }} /></AppShell>;
   if (mode === 'error') return <AppShell><Flex direction="column" gap={12}><Typography.Title>Не удалось продолжить</Typography.Title><Typography.Text>{error || 'Откройте приложение из MAX и попробуйте снова.'}</Typography.Text><Button onClick={() => window.location.reload()}>Повторить</Button></Flex></AppShell>;
+
+  async function openActiveAssist(assistId: string) {
+    setMode('loading');
+    setError('');
+    try {
+      const fullAssist = await queryClient.fetchQuery({ queryKey: queryKeys.assist(assistId), queryFn: assistQuery, staleTime: 0 });
+      if (fullAssist.status === 'ended') {
+        await queryClient.invalidateQueries({ queryKey: queryKeys.activeAssists() });
+        setAssist(null);
+        setMode('home');
+        return;
+      }
+      setAssist(fullAssist);
+      if (fullAssist.me.role === 'owner') {
+        if (!fullAssist.service_session_id) throw new Error('У активной помощи нет связанного заявления.');
+        const [nextDraft, nextDefinition] = await Promise.all([
+          queryClient.fetchQuery({ queryKey: queryKeys.session(fullAssist.service_session_id), queryFn: sessionQuery, staleTime: 0 }),
+          queryClient.fetchQuery({ queryKey: queryKeys.service(fullAssist.service.code), queryFn: serviceQuery, staleTime: 30_000 }),
+        ]);
+        cacheSession(queryClient, nextDraft);
+        setDraft(nextDraft);
+        setDefinition(nextDefinition);
+        if (fullAssist.status === 'active') setMode('form');
+        else if (fullAssist.status === 'waiting') setMode('waiting');
+        else {
+          await queryClient.invalidateQueries({ queryKey: queryKeys.activeAssists() });
+          setAssist(null);
+          setMode('home');
+        }
+      } else {
+        if (fullAssist.me.status === 'active') setMode('helper-active');
+        else if (fullAssist.me.status === 'pending') setMode('helper-pending');
+        else {
+          await queryClient.invalidateQueries({ queryKey: queryKeys.activeAssists() });
+          setAssist(null);
+          setMode('home');
+        }
+      }
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Не удалось восстановить помощь.');
+      setMode('home');
+    }
+  }
+
+  async function restoreActiveAssist() {
+    try {
+      const active = await queryClient.fetchQuery({ queryKey: queryKeys.activeAssists(), queryFn: activeAssistsQuery, staleTime: 0 });
+      if (active.length === 1) {
+        await openActiveAssist(active[0].id);
+      } else {
+        setMode('home');
+      }
+    } catch {
+      // Home renders the query error and offers a retry; login itself should remain usable.
+      setMode('home');
+    }
+  }
 
   async function openService(service: ServiceSummary, existingDraft?: ServiceSession) {
     setMode('loading'); setError('');
@@ -110,7 +177,9 @@ export default function App() {
     setAssistError('');
     try {
       if (consentRequired && consent) await agreeToRecording();
-      const nextAssist = await createAssist.mutateAsync(draft.id);
+      const nextAssist = assist && assist.status !== 'ended'
+        ? assist
+        : await createAssist.mutateAsync(draft.id);
       const invite = await createAssistInvite(nextAssist.id);
       setAssist(nextAssist);
       setMode('waiting');
@@ -155,18 +224,39 @@ export default function App() {
       else setAssistError(reason instanceof Error ? reason.message : 'Не удалось вызвать специалиста.');
     }
   }
+  async function callAgent() {
+    if (!draft) return;
+    setAssistError('');
+    try {
+      if (consentRequired && consent) await agreeToRecording();
+      const result = await callDigitalEmployee(draft.id);
+      cacheAssistSession(queryClient, result.assist_session); setAssist(result.assist_session); setMode('form');
+    } catch (reason) {
+      if (reason instanceof ApiError && reason.code === 'recording_consent_required') { setConsentRequired(true); setAssistError('Перед разговором подтвердите согласие на запись.'); }
+      else setAssistError(reason instanceof Error ? reason.message : 'Цифровой сотрудник недоступен. Позовите близкого или сотрудника МФЦ.');
+    }
+  }
+  async function releaseAgent() { if (!assist) return; try { await releaseDigitalEmployee(assist.id); } catch (reason) { setAssistError(reason instanceof Error ? reason.message : 'Не удалось отпустить цифрового сотрудника.'); } }
   async function finishAssist() {
     if (!assist) return;
-    try { await endAssistSession(assist.id); setMode('assist-ended'); }
+    try {
+      await endAssistSession(assist.id);
+      await queryClient.invalidateQueries({ queryKey: queryKeys.activeAssists() });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.assist(assist.id) });
+      setMode('assist-ended');
+    }
     catch (reason) { setAssistError(reason instanceof Error ? reason.message : 'Не удалось завершить помощь.'); }
   }
   async function approveJoin(approved: boolean) {
     if (!assist || !realtime.joinRequest) return;
     setAssistError('');
+    setApprovalBusy(true);
     try {
       const next = approved ? await approveAssistParticipant(assist.id, realtime.joinRequest.id) : await rejectAssistParticipant(assist.id, realtime.joinRequest.id);
       cacheAssistSession(queryClient, next); setAssist(next); useAssistStore.getState().clearJoinRequest();
+      if (approved) setMode('form');
     } catch (reason) { setAssistError(reason instanceof Error ? reason.message : 'Не удалось обновить подключение.'); }
+    finally { setApprovalBusy(false); }
   }
   async function acceptInvite() {
     if (!inviteToken) return;
@@ -183,15 +273,29 @@ export default function App() {
   }
   async function leaveAssist() {
     if (!assist) return;
-    try { await leaveAssistSession(assist.id); useAssistStore.getState().reset(); setAssist(null); setMode('home'); }
+    try {
+      await leaveAssistSession(assist.id);
+      await queryClient.invalidateQueries({ queryKey: queryKeys.activeAssists() });
+      queryClient.removeQueries({ queryKey: queryKeys.assist(assist.id) });
+      setBackAction(null);
+      useAssistStore.getState().reset();
+      setAssist(null);
+      setMode('home');
+    }
     catch (reason) { setAssistError(reason instanceof Error ? reason.message : 'Не удалось выйти из помощи.'); }
   }
-  const backToHome = () => { useAssistStore.getState().reset(); setAssist(null); setMode('home'); };
-  const shellBack = mode === 'home' ? undefined : backToHome;
+  const backToHome = () => { setBackAction(null); useAssistStore.getState().reset(); setAssist(null); setMode('home'); };
+  const shellBack = mode === 'home' ? undefined : () => {
+    if (mode === 'helper-active') setBackAction('helper');
+    else if (mode === 'form' && (assist?.status === 'active' || realtime.snapshot?.session.status === 'active')) setBackAction('owner');
+    else backToHome();
+  };
   if (!user) return null;
 
+  const helperSnapshot = realtime.snapshot ?? helperState.data;
+
   return <AppShell onBack={shellBack}>
-    {mode === 'home' && <Home user={user} launchIntent={launchIntent} onOpenService={(service, existingDraft) => void openService(service, existingDraft)} onOpenOperatorQueue={user.staff ? () => setMode('operator-queue') : undefined} onOpenTrustedHelpers={() => setMode('trusted-helpers')} onOpenHelpingFor={() => setMode('helping-for')} onOpenHistory={() => setMode('consultations')} onOpenCallback={(nextAssist, invite) => { setAssist(nextAssist); setInviteReady(invite.delivery === 'share_required' ? invite : null); setMode('waiting'); }} />}
+    {mode === 'home' && <Home user={user} launchIntent={launchIntent} onOpenService={(service, existingDraft) => void openService(service, existingDraft)} onOpenOperatorQueue={user.staff ? () => setMode('operator-queue') : undefined} onOpenTrustedHelpers={() => setMode('trusted-helpers')} onOpenHelpingFor={() => setMode('helping-for')} onOpenHistory={() => setMode('consultations')} onOpenActiveAssist={(id) => void openActiveAssist(id)} onOpenCallback={(nextAssist, invite) => { setAssist(nextAssist); setInviteReady(invite.delivery === 'share_required' ? invite : null); setMode('waiting'); }} />}
     {mode === 'trusted-helpers' && <T1TrustedHelpers />}
     {mode === 'helping-for' && <T5HelpingFor onOpen={(id) => { setAssist({ id } as AssistSession); setMode('helper-active'); }} onPairing={(token) => { setInviteToken(token); setMode('pairing-invite'); }} />}
     {mode === 'pairing-invite' && inviteToken && <T4PairingInvite token={inviteToken} onHome={backToHome} />}
@@ -200,19 +304,22 @@ export default function App() {
     {mode === 'replay' && historyId && <R3Replay id={historyId} />}
     {mode === 'operator-queue' && <O1OperatorQueue onClaim={(id) => { setAssist({ id } as AssistSession); setMode('helper-active'); }} />}
     {mode === 'service' && definition && <S2ServiceCard service={definition} draft={draft} onStart={() => void beginService()} />}
-    {mode === 'form' && definition && draft && <S3Form definition={definition} initialSession={draft} onSessionChange={setDraft} onConfirmation={(next) => { setDraft(next); setMode('confirmation'); }} assist={assist ? { id: assist.id, status: realtime.snapshot?.session.status ?? assist.status, helpers: realtime.snapshot?.session.participants.filter((item) => item.role !== 'owner').length ?? 0, connection: realtime.connection, recording: realtime.snapshot?.session.recording?.status === 'recording' } : null} onNeedHelp={() => { setConsent(false); setConsentRequired(false); setAssistError(''); setMode('help-options'); }} onOpenWaiting={() => setMode('waiting')} />}
-    {mode === 'help-options' && <S4HelpOptions consentRequired={consentRequired} consent={consent} busy={createAssist.isPending} error={assistError} onConsentChange={setConsent} onSendLink={() => void createAndShare()} onCallTrusted={(id) => void callTrusted(id)} onRequestOperator={(topic) => void requestOperator(topic)} onClose={() => setMode('form')} />}
+    {mode === 'form' && definition && draft && <S3Form definition={definition} initialSession={draft} onSessionChange={setDraft} onConfirmation={(next) => { setDraft(next); setMode('confirmation'); }} assist={assist ? { id: assist.id, status: realtime.snapshot?.session.status === 'active' || assist.status === 'active' ? 'active' : realtime.snapshot?.session.status ?? assist.status, helpers: realtime.snapshot?.session.participants.filter((item) => item.role !== 'owner' && item.status === 'active').length ?? 0, connection: realtime.connection, recording: realtime.snapshot?.session.recording?.status === 'recording', digitalEmployee: Boolean(realtime.snapshot?.session.participants.some((item) => item.role === 'ai_agent')) } : null} onNeedHelp={() => { setConsent(false); setConsentRequired(false); setAssistError(''); setMode('help-options'); }} onOpenWaiting={() => setMode('waiting')} onEndAssist={() => void finishAssist()} onReleaseDigitalEmployee={() => void releaseAgent()} />}
+    {mode === 'help-options' && <S4HelpOptions consentRequired={consentRequired} consent={consent} busy={createAssist.isPending} error={assistError} onConsentChange={setConsent} onSendLink={() => void createAndShare()} onCallTrusted={(id) => void callTrusted(id)} onRequestOperator={(topic) => void requestOperator(topic)} onCallDigitalEmployee={() => void callAgent()} onClose={() => setMode('form')} />}
     {mode === 'waiting' && assist && <S5Waiting session={assist} connection={realtime.connection} operatorRequest={realtime.snapshot?.operator_request} onShareAgain={() => void shareAgain()} onContinue={() => setMode('form')} onEnd={() => void finishAssist()} />}
     {mode === 'confirmation' && draft && <S7Confirmation session={draft} onBack={(next) => { setDraft(next); setMode('form'); }} onSubmitted={(next) => { setResult(next); setMode('submitted'); }} />}
     {mode === 'submitted' && result && <S8Submitted result={result} onHome={backToHome} />}
-    {mode === 'helper-invite' && inviteToken && <H1Invite token={inviteToken} consentRequired={consentRequired} consent={consent} busy={false} error={assistError} onConsentChange={setConsent} onAccept={() => void acceptInvite()} onBusy={() => setMode('helper-busy')} onHome={backToHome} onOwnerSession={(id) => { setAssist({ id } as AssistSession); setMode('waiting'); }} />}
+    {mode === 'helper-invite' && inviteToken && <H1Invite token={inviteToken} consentRequired={consentRequired} consent={consent} busy={false} error={assistError} onConsentChange={setConsent} onAccept={() => void acceptInvite()} onBusy={() => setMode('helper-busy')} onHome={backToHome} onOwnerSession={(id) => { void openActiveAssist(id); }} />}
     {mode === 'helper-busy' && inviteToken && <H5Busy token={inviteToken} onReady={(id) => { setInviteToken(id); setMode('helper-ready'); }} onHome={backToHome} />}
     {mode === 'helper-ready' && inviteToken && <H6Ready callbackId={inviteToken} onHome={backToHome} />}
-    {mode === 'helper-pending' && <H2Pending error={realtime.error || assistError} onHome={backToHome} />}
-    {mode === 'helper-active' && realtime.snapshot && <H3Helper snapshot={realtime.snapshot} connection={realtime.connection} onLeave={() => void leaveAssist()} />}
+    {mode === 'helper-pending' && <H2Pending error={realtime.error || assistError} rejected={realtime.rejected} connection={realtime.connection} onHome={backToHome} />}
+    {mode === 'helper-active' && helperSnapshot && <H3Helper snapshot={helperSnapshot} connection={realtime.connection} onLeave={() => void leaveAssist()} />}
+    {mode === 'helper-active' && !helperSnapshot && <Flex direction="column" gap={12}><Typography.Title>Подключаем помощь</Typography.Title>{helperState.isLoading && <Typography.Text>Загружаем текущий шаг…</Typography.Text>}{(helperState.error || realtime.error) && <div className="notice notice--error"><Typography.Text>{helperState.error instanceof Error ? helperState.error.message : realtime.error || 'Не удалось открыть консультацию.'}</Typography.Text><Button size="small" onClick={() => void helperState.refetch()}>Повторить</Button></div>}</Flex>}
     {mode === 'assist-ended' && assist && <S9Ended sessionId={assist.id} owner={Boolean(realtime.snapshot?.session.me.role === 'owner' || draft)} onContinue={() => setMode('form')} onHome={backToHome} onHistory={() => setMode('consultations')} />}
     {mode === 'assist-busy' && <S10HelperBusy onSave={() => { void finishAssist().finally(backToHome); }} onOther={() => setMode('help-options')} />}
-    {realtime.joinRequest && assist && <S6ApproveHelper helper={realtime.joinRequest} busy={false} error={assistError} onApprove={() => void approveJoin(true)} onReject={() => void approveJoin(false)} />}
+    {realtime.joinRequest && assist && <S6ApproveHelper helper={realtime.joinRequest} busy={approvalBusy} error={assistError} onApprove={() => void approveJoin(true)} onReject={() => void approveJoin(false)} />}
     {inviteReady && <InviteReadyDialog invite={inviteReady} onClose={() => setInviteReady(null)} />}
+    {backAction === 'helper' && <ConfirmDialog title="Выйти из помощи?" description="Вы перестанете видеть заявление и участвовать в разговоре." confirmLabel="Выйти" destructive onCancel={() => setBackAction(null)} onConfirm={() => void leaveAssist()} />}
+    {backAction === 'owner' && <ConfirmDialog title="Вернуться на главную?" description="Активная помощь не завершится. Её можно будет открыть снова в разделе «Активная помощь»." confirmLabel="Вернуться" onCancel={() => setBackAction(null)} onConfirm={backToHome} />}
   </AppShell>;
 }

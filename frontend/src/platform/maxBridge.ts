@@ -28,7 +28,8 @@ export interface MaxWebApp {
     enableScreenCapture: () => Promise<unknown>;
   };
   shareMaxContent?: (params: { text?: string; link?: string }) => void;
-  openCodeReader?: (callback?: (value: string) => void) => void;
+  /** Opens the MAX QR reader. Keep this as a method on WebApp: the bridge uses `this`. */
+  openCodeReader?: (fileSelect?: boolean) => Promise<string>;
   requestScreenMaxBrightness?: () => Promise<unknown>;
   restoreScreenBrightness?: () => Promise<unknown>;
   getViewportSize?: () => Promise<{ height: string; width: string }>;
@@ -91,23 +92,63 @@ export function setScreenCaptureProtection(enabled: boolean): void {
   });
 }
 
-export async function shareMaxContent(content: { text: string; link: string }): Promise<void> {
+export async function copyText(text: string): Promise<void> {
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return;
+    } catch {
+      // Some desktop browsers expose Clipboard API but reject it in an embedded
+      // webview. Continue with the user-gesture-compatible fallback below.
+    }
+  }
+  const input = document.createElement('textarea');
+  input.value = text;
+  input.setAttribute('readonly', '');
+  input.style.position = 'fixed';
+  input.style.opacity = '0';
+  document.body.append(input);
+  input.select();
+  const copied = document.execCommand('copy');
+  input.remove();
+  if (!copied) throw new Error('Clipboard is unavailable');
+}
+
+export async function shareMaxContent(content: { text: string; link: string }): Promise<'max' | 'max-web' | 'web' | 'clipboard'> {
   const share = getMaxWebApp()?.shareMaxContent;
   if (share) {
     share(content);
-    return;
+    return 'max';
   }
   if (navigator.share) {
     await navigator.share({ text: content.text, url: content.link });
-    return;
+    return 'web';
   }
-  await navigator.clipboard?.writeText(`${content.text}\n${content.link}`);
+  const maxWindow = window.open('https://max.ru/', '_blank', 'noopener,noreferrer');
+  await copyText(`${content.text}\n${content.link}`);
+  return maxWindow ? 'max-web' : 'clipboard';
 }
 
-export function openCodeReader(): Promise<string | null> {
-  const reader = getMaxWebApp()?.openCodeReader;
-  if (!reader) return Promise.resolve(null);
-  return new Promise((resolve) => reader((value) => resolve(value || null)));
+export async function openCodeReader(): Promise<string | null> {
+  const webApp = getMaxWebApp();
+  if (!webApp?.openCodeReader) {
+    throw new Error('Сканер QR-кода доступен только внутри приложения MAX.');
+  }
+
+  try {
+    // MAX Bridge expects a boolean (`fileSelect`), not a callback. Call it through
+    // WebApp so the bridge keeps its `this` context and can access requestController.
+    const value = await webApp.openCodeReader(false);
+    return value?.trim() || null;
+  } catch (reason) {
+    const error = typeof reason === 'object' && reason !== null && 'error' in reason ? reason.error : undefined;
+    const code = typeof reason === 'object' && reason !== null && 'code' in reason ? String(reason.code) : typeof error === 'object' && error !== null && 'code' in error ? String(error.code) : '';
+    const message = reason instanceof Error ? reason.message : String(reason);
+    if (code.includes('unsupported_method') || message.includes('UnsupportedEvent')) {
+      throw new Error('Этот клиент MAX не поддерживает сканирование QR. Вставьте ссылку приглашения вручную.');
+    }
+    throw new Error('Не удалось открыть сканер QR-кода. Откройте приложение внутри MAX и попробуйте ещё раз.');
+  }
 }
 
 export function setQrBrightness(enabled: boolean): void {

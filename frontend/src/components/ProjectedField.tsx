@@ -1,5 +1,5 @@
 import type { PointerEvent } from 'react';
-import { Flex, Panel, Typography } from '@maxhub/max-ui';
+import { Button, Flex, Panel, Typography } from '@maxhub/max-ui';
 import type { FieldError, ProjectedElement } from '../api/client';
 
 interface ProjectedFieldProps {
@@ -60,7 +60,6 @@ export function ProjectedField({ element, error, interactive = false, onShow, on
     <Panel
       className={interactive ? 'projected-field projected-field--interactive' : 'projected-field'}
       data-assist-id={element.id}
-      onClick={interactive ? () => onShow?.(element.id) : undefined}
       onPointerDown={onPointer ? (event) => { event.currentTarget.setPointerCapture(event.pointerId); onPointer(element.id, event); } : undefined}
       onPointerMove={onPointer ? (event) => { if (event.currentTarget.hasPointerCapture(event.pointerId)) onPointer(element.id, event); } : undefined}
       onPointerUp={onPointer ? (event) => { if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId); onPointerEnd?.(); } : undefined}
@@ -70,6 +69,8 @@ export function ProjectedField({ element, error, interactive = false, onShow, on
         <Typography.Text>{element.label ?? element.text ?? 'Поле'}</Typography.Text>
         <ValueView element={element} />
         {error && <Typography.Text className="field-error">{error.message}</Typography.Text>}
+        {interactive && !onPointer && <div className="projected-field__action"><Button size="small" variant="secondary" onClick={() => onShow?.(element.id)}>Показать</Button></div>}
+        {interactive && onPointer && <Typography.Text className="muted-text">Ведите пальцем по полю — владелец увидит указку.</Typography.Text>}
       </Flex>
     </Panel>
   );

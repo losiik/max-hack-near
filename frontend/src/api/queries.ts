@@ -9,6 +9,7 @@ import {
   getDevUsers,
   getDevOutbox,
   getServiceSessions,
+  getServiceSession,
   getMe,
   getOperatorQueue,
   getTrustedHelpers,
@@ -65,6 +66,10 @@ export function serviceQuery({ queryKey, signal }: QueryFunctionContext<ReturnTy
 
 export function sessionsQuery({ signal }: QueryFunctionContext<ReturnType<typeof queryKeys.sessions>>) {
   return getServiceSessions(signal);
+}
+
+export function sessionQuery({ queryKey, signal }: QueryFunctionContext<ReturnType<typeof queryKeys.session>>) {
+  return getServiceSession(queryKey[1], signal);
 }
 
 export function demoInboxQuery({ queryKey, signal }: QueryFunctionContext<ReturnType<typeof queryKeys.demoInbox>>) {

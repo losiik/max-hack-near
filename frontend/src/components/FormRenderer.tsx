@@ -28,6 +28,39 @@ function printableValue(value: unknown): string {
   return String(value);
 }
 
+function summaryValue(element: ServiceElement, value: unknown): string {
+  if (value === null || value === undefined || value === '') return 'Не заполнено';
+  if (element.type === 'checkbox') return value === true ? 'Да' : 'Нет';
+  if (element.type === 'select' || element.type === 'radio') {
+    const optionLabel = element.options?.find((option) => option.value === value)?.label;
+    if (optionLabel) return optionLabel;
+    const knownLabels: Record<string, string> = {
+      labor_veteran: 'Ветеран труда',
+      social_decision: 'Решение органа соцзащиты',
+      pensioner: 'Пенсионер по старости',
+      disabled: 'Человек с инвалидностью или семья с ребёнком-инвалидом',
+      large_family: 'Многодетная семья',
+      low_income: 'Малоимущая семья',
+      spb: 'Санкт-Петербург',
+      msk: 'Москва',
+      len_obl: 'Ленинградская область',
+      owner: 'Собственник',
+      tenant: 'Наниматель по договору соцнайма',
+      family_member: 'Член семьи собственника',
+      pension: 'Пенсия',
+      salary: 'Заработная плата',
+      benefits: 'Пособия',
+      none: 'Нет дохода',
+      bank: 'На банковский счёт',
+      post: 'Через почтовое отделение',
+    };
+    return knownLabels[String(value)] ?? printableValue(value).replaceAll('_', ' ');
+  }
+  if (element.type === 'date' && typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) return value.split('-').reverse().join('.');
+  const rendered = printableValue(value);
+  return element.unit ? `${rendered} ${element.unit}` : rendered;
+}
+
 function formatSnils(value: string): string {
   const digits = value.replace(/\D/g, '').slice(0, 11);
   const first = digits.slice(0, 3);
@@ -49,7 +82,7 @@ export function FormRenderer({ definition, step, values, errors, onChange, onBlu
     serviceStep.elements
       .filter((element) => element.label && ['text', 'number', 'date', 'select', 'radio', 'checkbox'].includes(element.type))
       .filter((element) => isVisible(element, values))
-      .map((element) => ({ label: element.label!, value: printableValue(values[element.id]) })),
+      .map((element) => ({ label: element.label!, value: summaryValue(element, values[element.id]) })),
   );
 
   return (
@@ -168,21 +201,23 @@ export function FormRenderer({ definition, step, values, errors, onChange, onBlu
               {element.required ? ' *' : ''}
             </span>
             <PrivacyHint element={element} visible={showPrivacyHints} />
-            <Input
-              type={type}
-              size="medium"
-              value={isSnils ? formatSnils(displayedValue) : displayedValue}
-              placeholder={element.placeholder}
-              inputMode={element.type === 'number' || element.type === 'otp' || isSnils ? 'numeric' : undefined}
-              maxLength={element.type === 'otp' ? 4 : isSnils ? 14 : undefined}
-              onChange={(event) => {
-                const raw = event.target.value;
-                const normalized = isSnils ? formatSnils(raw) : raw;
-                onChange(element.id, element.type === 'number' ? (raw === '' ? null : Number(raw)) : normalized || null);
-              }}
-              onBlur={onBlur}
-            />
-            {element.unit && <small className="field-hint">{element.unit}</small>}
+            <div className={element.unit ? 'input-with-unit' : undefined}>
+              <Input
+                type={type}
+                size="medium"
+                value={isSnils ? formatSnils(displayedValue) : displayedValue}
+                placeholder={element.placeholder}
+                inputMode={element.type === 'number' || element.type === 'otp' || isSnils ? 'numeric' : undefined}
+                maxLength={element.type === 'otp' ? 4 : isSnils ? 14 : undefined}
+                onChange={(event) => {
+                  const raw = event.target.value;
+                  const normalized = isSnils ? formatSnils(raw) : raw;
+                  onChange(element.id, element.type === 'number' ? (raw === '' ? null : Number(raw)) : normalized || null);
+                }}
+                onBlur={onBlur}
+              />
+              {element.unit && <span className="input-unit" aria-hidden="true">{element.unit}</span>}
+            </div>
             {element.hint && <small className="field-hint">{element.hint}</small>}
             {error && <small className="field-error">{error.message}</small>}
           </label>

@@ -1,12 +1,14 @@
 import { Button, Flex, Typography } from '@maxhub/max-ui';
-import { Fragment, useRef, useState, type PointerEvent } from 'react';
+import { Fragment, useEffect, useRef, useState, type PointerEvent } from 'react';
 import type { ProjectedState } from '../api/client';
 import { AnnotationToolbar, type AnnotationKind } from '../components/AnnotationToolbar';
 import { ProjectedField } from '../components/ProjectedField';
 import { ScreenIntro, StatusMark } from '../components/ScreenIntro';
-import { ParticipantBadge } from '../components/ParticipantBadge';
 import { useAssistStore } from '../realtime/assistStore';
 import { VoiceControl } from '../components/VoiceControl';
+import { ConfirmDialog } from '../components/AppDialog';
+import { InlineAction } from '../components/InlineAction';
+import { useToast } from '../components/ToastProvider';
 
 export function H3Helper({ snapshot, connection, onLeave }: { snapshot: ProjectedState; connection: string; onLeave: () => void }) {
   const owner = snapshot.session.owner;
@@ -14,11 +16,22 @@ export function H3Helper({ snapshot, connection, onLeave }: { snapshot: Projecte
   const confusionElementId = useAssistStore((state) => state.confusionElementId);
   const annotationFeedback = useAssistStore((state) => state.annotationFeedback);
   const [kind, setKind] = useState<AnnotationKind>('highlight');
-  const [label, setLabel] = useState('Нажмите сюда');
+  const [label, setLabel] = useState('');
+  const [confirmLeave, setConfirmLeave] = useState(false);
   const lastPointerAt = useRef(0);
+  const lastFeedback = useRef('');
+  const toast = useToast();
   const canAnnotate = Boolean(sendCommand && snapshot.session.me.capabilities.includes('annotate'));
-  const me = snapshot.session.participants.find((participant) => participant.id === snapshot.session.me.participant_id);
+  const ownerParticipant = snapshot.session.participants.find((participant) => participant.role === 'owner');
   const canSeeHints = snapshot.session.me.capabilities.includes('view_operator_hints');
+
+  useEffect(() => {
+    if (!annotationFeedback || annotationFeedback.state === 'sending') return;
+    const key = `${annotationFeedback.requestId}:${annotationFeedback.state}`;
+    if (key === lastFeedback.current) return;
+    lastFeedback.current = key;
+    toast(annotationFeedback.message, annotationFeedback.state === 'error' ? 'error' : 'default');
+  }, [annotationFeedback, toast]);
 
   function point(elementId: string, event: PointerEvent<HTMLElement>) {
     if (kind !== 'pointer' || !sendCommand || Date.now() - lastPointerAt.current < 100) return;
@@ -31,32 +44,41 @@ export function H3Helper({ snapshot, connection, onLeave }: { snapshot: Projecte
     });
   }
 
+  function showAnnotation(elementId: string) {
+    if (!sendCommand || kind === 'pointer') return;
+    const trimmed = label.trim();
+    sendCommand(`annotation.${kind}`, trimmed ? { element_id: elementId, label: trimmed } : { element_id: elementId });
+  }
+
+  const ownerOnline = ownerParticipant?.online === true;
   return (
-    <Flex direction="column" gap={12}>
-      <ScreenIntro eyebrow={`Вы помогаете ${owner.display_name}`} title={snapshot.current_step.title} meta={`Шаг ${snapshot.current_step.index} из ${snapshot.service.total_steps}`} />
-      {me && <ParticipantBadge participant={me} />}
-      <VoiceControl sessionId={snapshot.session.id} />
+    <Flex direction="column" gap={12} className="helper-screen">
+      <ScreenIntro eyebrow="Вы помогаете" title={owner.display_name} description={`Шаг ${snapshot.current_step.index} из ${snapshot.service.total_steps} · ${snapshot.current_step.title}`} />
+      <div className="helper-realtime-status"><StatusMark tone={connection === 'connected' && ownerOnline ? 'positive' : 'attention'} /><Typography.Text>{connection === 'reconnecting' ? 'Восстанавливаем соединение…' : connection === 'connected' && ownerOnline ? 'В сети' : 'Нет соединения'}</Typography.Text></div>
+      <VoiceControl sessionId={snapshot.session.id} role="helper" autoConnect={false} />
       {canSeeHints && snapshot.current_step.operator_hint && <div className="notice notice--subtle"><Typography.Label>Подсказка специалисту</Typography.Label><Typography.Text>{snapshot.current_step.operator_hint}</Typography.Text></div>}
-      {connection === 'reconnecting' && <div className="notice notice--subtle">Восстанавливаем соединение…</div>}
       {snapshot.session.recording?.status === 'recording' && <div className="recording-state"><StatusMark tone="attention" /><Typography.Text>Идёт запись</Typography.Text></div>}
       {confusionElementId && <div className="notice notice--subtle">{owner.display_name} просит подсказать по полю «{snapshot.current_step.elements.find((element) => element.id === confusionElementId)?.label ?? 'этому полю'}».</div>}
-      {annotationFeedback && <div className={`notice ${annotationFeedback.state === 'error' ? 'notice--error' : 'notice--subtle'}`}><Typography.Text>{annotationFeedback.message}</Typography.Text></div>}
       {canAnnotate && <AnnotationToolbar kind={kind} label={label} onKindChange={setKind} onLabelChange={setLabel} onClear={() => sendCommand?.('annotation.clear', {})} />}
-      <Flex direction="column" gap={12}>
+      {annotationFeedback?.state === 'sending' && <Typography.Text className="muted-text">{annotationFeedback.message}</Typography.Text>}
+      {annotationFeedback?.state === 'error' && <div className="notice notice--error"><Typography.Text>{annotationFeedback.message}</Typography.Text></div>}
+      {kind === 'pointer' && canAnnotate && <div className="notice notice--subtle">Ведите пальцем по нужному полю — владелец увидит указку.</div>}
+      <div className="helper-projection-heading"><Typography.Label>{owner.display_name} сейчас видит этот шаг</Typography.Label></div>
+      <Flex direction="column" gap={12} className="helper-projection">
         {snapshot.current_step.elements.map((element) => <Fragment key={element.id}>
           <ProjectedField
-            key={element.id}
             element={element}
             error={snapshot.errors.find((error) => error.element_id === element.id)}
-            interactive={canAnnotate}
-            onShow={(elementId) => { if (kind !== 'pointer') sendCommand?.(`annotation.${kind}`, { element_id: elementId, label }); }}
+            interactive={canAnnotate && !['info', 'summary', 'action'].includes(element.type)}
+            onShow={showAnnotation}
             onPointer={kind === 'pointer' ? point : undefined}
             onPointerEnd={kind === 'pointer' ? () => sendCommand?.('annotation.pointer', { visible: false }) : undefined}
           />
           {canSeeHints && element.operator_hint && <Typography.Text className="operator-hint">Подсказка: {element.operator_hint}</Typography.Text>}
         </Fragment>)}
       </Flex>
-      <Button size="small" stretched variant="destructive" onClick={onLeave}>Выйти из помощи</Button>
+      <InlineAction title="Выйти из помощи" description="Вы перестанете видеть заявление и участвовать в разговоре." action="Выйти" variant="destructive" onClick={() => setConfirmLeave(true)} />
+      {confirmLeave && <ConfirmDialog title="Выйти из помощи?" description="Вы перестанете видеть заявление и участвовать в разговоре." confirmLabel="Выйти" destructive onCancel={() => setConfirmLeave(false)} onConfirm={onLeave} />}
     </Flex>
   );
 }

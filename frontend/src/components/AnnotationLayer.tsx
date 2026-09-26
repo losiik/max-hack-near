@@ -41,7 +41,7 @@ export function AnnotationLayer({ annotations, pointer, autoScroll = false }: { 
       const target = targetFor(annotation.element_id);
       if (!target) return;
       const rect = target.getBoundingClientRect();
-      if (rect.top < 0 || rect.bottom > window.innerHeight) target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      if (rect.top < 0 || rect.bottom > window.innerHeight) target.scrollIntoView({ block: 'center', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
     });
   }, [annotations, autoScroll, seen]);
 
@@ -59,7 +59,7 @@ export function AnnotationLayer({ annotations, pointer, autoScroll = false }: { 
   return <div className="annotation-layer" aria-live="polite">
     {positioned.map((annotation) => (
       <div key={annotation.id} className={`annotation annotation--${annotation.kind}`} style={{ left: annotation.left, top: annotation.top, width: annotation.width, height: annotation.height }}>
-        <span className="annotation__label">{annotation.author.display_name}: {annotation.label || 'показывает сюда'}</span>
+        <span className="annotation__label">{annotation.author.display_name}{annotation.label ? `: ${annotation.label}` : ''}</span>
       </div>
     ))}
     {pointerPosition && <span className="annotation-pointer" style={pointerPosition} aria-label="Указка помощника" />}
