@@ -103,3 +103,15 @@ export async function shareMaxContent(content: { text: string; link: string }): 
   }
   await navigator.clipboard?.writeText(`${content.text}\n${content.link}`);
 }
+
+export function openCodeReader(): Promise<string | null> {
+  const reader = getMaxWebApp()?.openCodeReader;
+  if (!reader) return Promise.resolve(null);
+  return new Promise((resolve) => reader((value) => resolve(value || null)));
+}
+
+export function setQrBrightness(enabled: boolean): void {
+  const app = getMaxWebApp();
+  const operation = enabled ? app?.requestScreenMaxBrightness : app?.restoreScreenBrightness;
+  void operation?.().catch(() => undefined);
+}

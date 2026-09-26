@@ -14,6 +14,8 @@ import { cacheSession } from '../api/queries';
 import { setClosingConfirmation, setScreenCaptureProtection } from '../platform/maxBridge';
 import { ScreenIntro, StatusMark } from '../components/ScreenIntro';
 import { useAssistStore } from '../realtime/assistStore';
+import { VoiceControl } from '../components/VoiceControl';
+import { PastHelpBanner } from '../components/PastHelpBanner';
 
 type SaveState = 'saved' | 'saving' | 'error';
 
@@ -30,7 +32,7 @@ interface S3FormProps {
   initialSession: ServiceSession;
   onSessionChange: (session: ServiceSession) => void;
   onConfirmation: (session: ServiceSession) => void;
-  assist?: { status: string; helpers: number; connection: string } | null;
+  assist?: { id: string; status: string; helpers: number; connection: string; recording: boolean } | null;
   onNeedHelp: () => void;
   onOpenWaiting: () => void;
 }
@@ -149,11 +151,15 @@ export function S3Form({ definition, initialSession, onSessionChange, onConfirma
         <span style={{ width: `${(session.current_step.index / session.total_steps) * 100}%` }} />
       </div>
 
+      {(!assist || assist.status !== 'active') && <PastHelpBanner serviceSessionId={session.id} stepId={session.current_step.id} />}
+
       <section className={`assist-bar assist-bar--${assist ? assist.status : 'idle'}`}>
         {assist ? (
           <Flex direction="column" gap={8}>
             <Flex align="center" gap={8}><StatusMark tone={assist.status === 'active' ? 'positive' : 'attention'} /><Typography.Label>{assist.status === 'waiting' ? 'Помощь ожидает подключения' : 'Помощник рядом'}</Typography.Label></Flex>
             <Typography.Text>{assist.status === 'waiting' ? 'Ссылка отправлена. Можно продолжать оформление.' : `${assist.helpers || 1} участник рядом с вами`}</Typography.Text>
+            {assist.status === 'active' && <VoiceControl sessionId={assist.id} />}
+            {assist.status === 'active' && assist.recording && <Typography.Text className="recording-state">● Идёт запись</Typography.Text>}
             {assist.connection === 'reconnecting' && <Typography.Text className="assist-bar__state">Восстанавливаем соединение…</Typography.Text>}
             <Button size="small" variant="secondary" onClick={onOpenWaiting}>{assist.status === 'waiting' ? 'Открыть ожидание' : 'Открыть помощь'}</Button>
             {assist.status === 'active' && Boolean(sendCommand) && confusionTargets.length > 0 && <>

@@ -2,25 +2,30 @@ import { useState } from 'react';
 import { Button, Flex, Panel, Typography } from '@maxhub/max-ui';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { loginWithDev, type AuthUser, type DevUser } from '../api/client';
-import { devUsersQuery, queryKeys } from '../api/queries';
+import { devOutboxQuery, devUsersQuery, queryKeys } from '../api/queries';
 import { launchIntentLabel, parseStartParam } from '../platform/startParam';
 
 interface D1Props {
   onLogin: (user: AuthUser) => void;
+  onLaunch: (startParam: string) => void;
+  onHome: () => void;
 }
 
-export function D1({ onLogin }: D1Props) {
+export function D1({ onLogin, onLaunch, onHome }: D1Props) {
   const [startParam, setStartParam] = useState('');
   const [preview, setPreview] = useState('');
   const [error, setError] = useState('');
+  const [selected, setSelected] = useState<AuthUser | null>(null);
   const users = useQuery({ queryKey: queryKeys.devUsers(), queryFn: devUsersQuery });
   const login = useMutation({ mutationFn: loginWithDev });
+  const outbox = useQuery({ queryKey: queryKeys.devOutbox(), queryFn: devOutboxQuery, enabled: Boolean(selected), refetchInterval: selected ? 3_000 : false });
 
   async function chooseUser(user: DevUser) {
     setError('');
     try {
       const response = await login.mutateAsync(user.user_key);
       onLogin(response.user);
+      setSelected(response.user);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Не удалось войти');
     }
@@ -35,7 +40,7 @@ export function D1({ onLogin }: D1Props) {
 
       {(error || users.error) && <Panel className="notice notice--error">{error || (users.error as Error).message}</Panel>}
 
-      <Flex direction="column" gap={10}>
+      {!selected && <Flex direction="column" gap={10}>
         <Typography.Text>Пользователь</Typography.Text>
         {users.isLoading && <Typography.Text>Загружаем список…</Typography.Text>}
         {users.data?.map((user) => (
@@ -49,7 +54,9 @@ export function D1({ onLogin }: D1Props) {
             <small>{user.role_hint}</small>
           </Button>
         ))}
-      </Flex>
+      </Flex>}
+
+      {selected && <Flex direction="column" gap={10}><Typography.Label>Вы вошли как {selected.display_name}</Typography.Label><Button size="small" stretched onClick={onHome}>Открыть приложение</Button><Typography.Label>Сообщения бота</Typography.Label>{outbox.data?.length === 0 && <Typography.Text className="muted-text">Сообщений пока нет.</Typography.Text>}{outbox.data?.map((message) => <div className="notice" key={message.id}><Flex direction="column" gap={8}><Typography.Text>{message.text}</Typography.Text>{message.buttons.map((button, index) => button.start_param ? <Button key={`${button.text}-${index}`} size="small" stretched variant="secondary" onClick={() => onLaunch(button.start_param!)}>{button.text}</Button> : <Typography.Text key={`${button.text}-${index}`} className="muted-text">{button.text}</Typography.Text>)}</Flex></div>)}</Flex>}
 
       <Flex direction="column" gap={10}>
         <Typography.Text>Проверить deep link</Typography.Text>
@@ -62,14 +69,11 @@ export function D1({ onLogin }: D1Props) {
         />
         <Button
           disabled={!startParam.trim()}
-          onClick={() => setPreview(launchIntentLabel(parseStartParam(startParam.trim())))}
+          onClick={() => { setPreview(launchIntentLabel(parseStartParam(startParam.trim()))); if (selected) onLaunch(startParam.trim()); }}
         >
           Проверить ссылку
         </Button>
         {preview && <Typography.Text className="muted-text">Маршрут: {preview}</Typography.Text>}
-        <Typography.Text className="muted-text">
-          В следующих вехах значение откроет нужный экран приглашения или помощи.
-        </Typography.Text>
       </Flex>
     </Flex>
   );

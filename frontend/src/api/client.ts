@@ -5,6 +5,7 @@ export interface DevUser {
   display_name: string;
   role_hint: string;
 }
+export interface DevOutboxMessage { id: string; created_at: string; text: string; buttons: Array<{ text: string; start_param: string | null }>; }
 
 export interface AuthUser {
   id: string;
@@ -186,6 +187,7 @@ export interface AssistInvite {
   delivery: 'share_required' | 'bot_message';
 }
 export interface TrustedHelper { id: string; helper: Person; alias: string | null; verification_method: string; created_at: string; last_helped_at: string | null; }
+export interface HelpingFor { id: string; owner: Omit<Person, 'id'>; active_assist_session_id: string | null; created_at: string; }
 export interface Pairing { id: string; method: 'qr' | 'link'; status: string; token: string; qr_payload: string; deep_link: string; expires_at: string; }
 export interface PairingState { id: string; status: string; expires_at: string; claimed_by: { display_name: string; photo_url: string | null; max_username: string | null } | null; }
 export interface PairingPreview { status: string; owner: { display_name: string; photo_url: string | null }; }
@@ -263,6 +265,9 @@ export interface ConsultationSummary {
   recording: { status: string; duration_ms: number | null } | null;
   actions: { can_continue: boolean; can_call_again: Array<{ trusted_helper_id: string; display_name: string }> };
 }
+export interface ConsultationListItem extends ConsultationSummary { my_role: string; owner_display_name: string | null; stats: { highlights: number; confusions: number }; }
+export interface ConsultationDetail extends ConsultationSummary { chapters: Array<{ step_id: string; title: string; start_offset_ms: number; duration_ms: number; highlights: number; confusions: number; had_errors: boolean }>; }
+export interface ConsultationReplay { assist_session_id: string; service: { code: string; title: string }; duration_ms: number; steps: Array<{ id: string; index: number; title: string; elements: Array<{ id: string; type: string; label: string | null }> }>; recording: { status: string; url: string | null; offset_ms: number | null; duration_ms: number | null } | null; events: Array<{ seq: number | null; offset_ms: number; type: string; payload: Record<string, unknown> }>; }
 
 export interface OperatorQueueItem {
   id: string;
@@ -275,6 +280,20 @@ export interface OperatorQueueItem {
 }
 
 export interface OperatorRequest { id: string; status: string; topic: string; position: number | null; }
+export interface HelpCallback {
+  id: string;
+  status: 'busy' | 'ready';
+  owner: { display_name: string };
+  helper: { display_name: string };
+  service_session_id: string;
+  service: { title: string };
+  created_at: string;
+  ready_at: string | null;
+  expires_at: string;
+}
+export interface VoiceToken { url: string; room: string; token: string; expires_at: string; }
+export interface PastHelpFragment { assist_session_id: string; date: string; helpers: Array<{ display_name: string; role: string }>; has_audio: boolean; audio_url: string | null; audio_start_ms: number | null; audio_end_ms: number | null; replay_from_ms: number; replay_to_ms: number; highlights: number; confusions: number; }
+export interface PastHelp { steps: Record<string, PastHelpFragment[]>; }
 
 export class ApiError extends Error {
   constructor(
@@ -342,6 +361,7 @@ export function loginWithDev(userKey: string): Promise<TokenResponse> {
 export function getDevUsers(signal?: AbortSignal): Promise<DevUser[]> {
   return request<DevUser[]>('/dev/users', { signal });
 }
+export function getDevOutbox(signal?: AbortSignal): Promise<DevOutboxMessage[]> { return request<DevOutboxMessage[]>('/dev/outbox', { signal }); }
 
 export function getMe(signal?: AbortSignal): Promise<Me> {
   return request<Me>('/me', { signal });
@@ -438,6 +458,9 @@ export function createAssistInvite(id: string, trustedHelperId?: string): Promis
 }
 
 export function getTrustedHelpers(signal?: AbortSignal): Promise<TrustedHelper[]> { return request<TrustedHelper[]>('/trusted-helpers', { signal }); }
+export function getHelpingFor(signal?: AbortSignal): Promise<HelpingFor[]> { return request<HelpingFor[]>('/trusted-helpers/helping-for', { signal }); }
+export function renameTrustedHelper(id: string, alias: string): Promise<TrustedHelper> { return request<TrustedHelper>(`/trusted-helpers/${id}`, { method: 'PATCH', body: JSON.stringify({ alias }) }); }
+export function revokeTrustedHelper(id: string): Promise<void> { return request<void>(`/trusted-helpers/${id}`, { method: 'DELETE' }); }
 export function createPairing(method: Pairing['method']): Promise<Pairing> { return request<Pairing>('/pairings', { method: 'POST', body: JSON.stringify({ method }) }); }
 export function getPairing(id: string, signal?: AbortSignal): Promise<PairingState> { return request<PairingState>(`/pairings/${id}`, { signal }); }
 export function confirmPairing(id: string, alias?: string): Promise<TrustedHelper> { return request<TrustedHelper>(`/pairings/${id}/confirm`, { method: 'POST', body: JSON.stringify({ alias }) }); }
@@ -450,6 +473,10 @@ export function getAssistInvite(token: string, signal?: AbortSignal): Promise<In
 
 export function acceptAssistInvite(token: string): Promise<InviteAcceptance> {
   return request<InviteAcceptance>(`/assist-invites/${token}/accept`, { method: 'POST' });
+}
+
+export function declineAssistInvite(token: string): Promise<{ help_callback_id: string; owner: { display_name: string } }> {
+  return request(`/assist-invites/${token}/decline`, { method: 'POST' });
 }
 
 export function approveAssistParticipant(sessionId: string, participantId: string): Promise<AssistSession> {
@@ -467,10 +494,20 @@ export function leaveAssistSession(sessionId: string): Promise<void> {
 export function endAssistSession(sessionId: string): Promise<ConsultationSummary> {
   return request<ConsultationSummary>(`/assist-sessions/${sessionId}/end`, { method: 'POST' });
 }
+export function getVoiceToken(sessionId: string): Promise<VoiceToken> { return request<VoiceToken>(`/assist-sessions/${sessionId}/voice-token`, { method: 'POST' }); }
+export function getPastHelp(serviceSessionId: string, signal?: AbortSignal): Promise<PastHelp> { return request<PastHelp>(`/service-sessions/${serviceSessionId}/past-help`, { signal }); }
 
 export function getAssistSummary(sessionId: string, signal?: AbortSignal): Promise<ConsultationSummary> {
   return request<ConsultationSummary>(`/assist-sessions/${sessionId}/summary`, { signal });
 }
+export function getConsultations(as: 'owner' | 'helper', signal?: AbortSignal): Promise<ConsultationListItem[]> { return request<ConsultationListItem[]>(`/consultations?as=${as}&limit=20`, { signal }); }
+export function getConsultation(id: string, signal?: AbortSignal): Promise<ConsultationDetail> { return request<ConsultationDetail>(`/consultations/${id}`, { signal }); }
+export function getConsultationReplay(id: string, signal?: AbortSignal): Promise<ConsultationReplay> { return request<ConsultationReplay>(`/consultations/${id}/replay`, { signal }); }
+export function deleteConsultationRecording(id: string): Promise<void> { return request<void>(`/consultations/${id}/recording`, { method: 'DELETE' }); }
+export function getHelpCallbacks(as: 'owner' | 'helper', signal?: AbortSignal): Promise<HelpCallback[]> { return request<HelpCallback[]>(`/help-callbacks?as=${as}`, { signal }); }
+export function markHelpCallbackReady(id: string): Promise<HelpCallback> { return request<HelpCallback>(`/help-callbacks/${id}/ready`, { method: 'POST' }); }
+export function callHelpCallback(id: string): Promise<{ assist_session: AssistSession; invite: AssistInvite }> { return request(`/help-callbacks/${id}/call`, { method: 'POST' }); }
+export function dismissHelpCallback(id: string): Promise<void> { return request<void>(`/help-callbacks/${id}`, { method: 'DELETE' }); }
 
 export function getOperatorQueue(signal?: AbortSignal): Promise<OperatorQueueItem[]> { return request<OperatorQueueItem[]>('/operator/requests', { signal }); }
 export function claimOperatorRequest(id: string): Promise<{ assist_session_id: string; participant_id: string }> { return request(`/operator/requests/${id}/claim`, { method: 'POST' }); }

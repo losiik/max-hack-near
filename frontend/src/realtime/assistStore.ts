@@ -30,6 +30,8 @@ export interface AssistPointer {
   relY: number;
 }
 
+export interface AnnotationFeedback { state: 'sending' | 'sent' | 'error'; message: string; requestId: string; }
+
 interface AssistRealtimeState {
   sessionId: string | null;
   connection: AssistConnection;
@@ -39,12 +41,15 @@ interface AssistRealtimeState {
   endedReason: string | null;
   pointer: AssistPointer | null;
   confusionElementId: string | null;
+  inviteDeclined: boolean;
+  annotationFeedback: AnnotationFeedback | null;
   lastSeq: number;
   error: string | null;
-  sendCommand: ((command: string, payload: Record<string, unknown>) => void) | null;
+  sendCommand: ((command: string, payload: Record<string, unknown>) => string | null) | null;
   begin: (sessionId: string) => void;
   setConnection: (connection: AssistConnection, error?: string | null) => void;
   setSender: (sender: AssistRealtimeState['sendCommand']) => void;
+  setAnnotationFeedback: (feedback: AnnotationFeedback | null) => void;
   receive: (message: AssistEnvelope) => void;
   clearJoinRequest: () => void;
   reset: () => void;
@@ -64,17 +69,20 @@ export const useAssistStore = create<AssistRealtimeState>((set, get) => ({
   endedReason: null,
   pointer: null,
   confusionElementId: null,
+  inviteDeclined: false,
+  annotationFeedback: null,
   lastSeq: 0,
   error: null,
   sendCommand: null,
   begin: (sessionId) => {
     if (get().sessionId === sessionId) return;
-    set({ sessionId, connection: 'connecting', snapshot: null, pending: null, joinRequest: null, endedReason: null, pointer: null, confusionElementId: null, lastSeq: 0, error: null, sendCommand: null });
+    set({ sessionId, connection: 'connecting', snapshot: null, pending: null, joinRequest: null, endedReason: null, pointer: null, confusionElementId: null, inviteDeclined: false, annotationFeedback: null, lastSeq: 0, error: null, sendCommand: null });
   },
   setConnection: (connection, error = null) => set({ connection, error }),
   setSender: (sendCommand) => set({ sendCommand }),
+  setAnnotationFeedback: (annotationFeedback) => set({ annotationFeedback }),
   clearJoinRequest: () => set({ joinRequest: null }),
-  reset: () => set({ sessionId: null, connection: 'idle', snapshot: null, pending: null, joinRequest: null, endedReason: null, pointer: null, confusionElementId: null, lastSeq: 0, error: null, sendCommand: null }),
+  reset: () => set({ sessionId: null, connection: 'idle', snapshot: null, pending: null, joinRequest: null, endedReason: null, pointer: null, confusionElementId: null, inviteDeclined: false, annotationFeedback: null, lastSeq: 0, error: null, sendCommand: null }),
   receive: (message) => {
     const state = get();
     if (message.session_id && state.sessionId && message.session_id !== state.sessionId) return;
@@ -92,8 +100,22 @@ export const useAssistStore = create<AssistRealtimeState>((set, get) => ({
 
     const nextSeq = message.seq === null ? state.lastSeq : message.seq;
     const snapshot = state.snapshot;
+    if (message.event === 'ack') {
+      const requestId = String(message.payload.request_id ?? '');
+      if (state.annotationFeedback?.requestId === requestId) set({ annotationFeedback: { state: 'sent', message: 'Пометка показана владельцу', requestId } });
+      return;
+    }
+    if (message.event === 'error') {
+      const requestId = String(message.payload.request_id ?? '');
+      if (state.annotationFeedback?.requestId === requestId) set({ annotationFeedback: { state: 'error', message: String(message.payload.message ?? 'Не удалось показать пометку'), requestId } });
+      return;
+    }
     if (message.event === 'session.ended') {
       set({ endedReason: String(message.payload.reason ?? 'ended'), connection: 'closed', lastSeq: nextSeq });
+      return;
+    }
+    if (message.event === 'invite.declined') {
+      set({ inviteDeclined: true, lastSeq: nextSeq });
       return;
     }
     if (message.event === 'participant.join_requested') {

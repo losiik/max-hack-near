@@ -359,6 +359,13 @@ async def cancel(session: AsyncSession, user: User, session_id: UUID) -> Service
     return row
 
 
+async def delete_session(session: AsyncSession, user: User, session_id: UUID) -> None:
+    row = await get_owned(session, user, session_id)
+    await notify("deleted", row)
+    await session.delete(row)
+    await session.commit()
+
+
 def current_step_errors(row: ServiceSession) -> list[FieldError]:
     return [
         FieldError(error["element_id"], error["code"], error.get("details"))

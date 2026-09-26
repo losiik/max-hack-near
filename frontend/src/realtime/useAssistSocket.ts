@@ -36,7 +36,11 @@ export function useAssistSocket(sessionId: string | null): void {
         attempts = 0;
         store.getState().setConnection('connected');
         store.getState().setSender((command, payload) => {
-          if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ command, payload }));
+          if (socket?.readyState !== WebSocket.OPEN) return null;
+          const requestId = crypto.randomUUID();
+          if (command.startsWith('annotation.')) store.getState().setAnnotationFeedback({ state: 'sending', message: 'Показываем владельцу…', requestId });
+          socket.send(JSON.stringify({ command, payload, request_id: requestId }));
+          return requestId;
         });
         pingTimer = window.setInterval(() => {
           if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ command: 'presence.ping', payload: {} }));

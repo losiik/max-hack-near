@@ -12,11 +12,12 @@ interface H1InviteProps {
   error?: string;
   onConsentChange: (value: boolean) => void;
   onAccept: () => void;
+  onBusy: () => void;
   onHome: () => void;
   onOwnerSession: (id: string) => void;
 }
 
-export function H1Invite({ token, consentRequired, consent, busy, error, onConsentChange, onAccept, onHome, onOwnerSession }: H1InviteProps) {
+export function H1Invite({ token, consentRequired, consent, busy, error, onConsentChange, onAccept, onBusy, onHome, onOwnerSession }: H1InviteProps) {
   const invite = useQuery({ queryKey: queryKeys.assistInvite(token), queryFn: assistInviteQuery, retry: false });
   useEffect(() => {
     if (invite.data?.is_owner) onOwnerSession(invite.data.assist_session_id);
@@ -39,7 +40,7 @@ export function H1Invite({ token, consentRequired, consent, busy, error, onConse
       {consentRequired && <label className="switch-field"><span>Я согласен на запись разговора для повторного обращения к помощи.</span><Switch checked={consent} onChange={(event) => onConsentChange(event.target.checked)} /></label>}
       {error && <div className="notice notice--error">{error}</div>}
       <Button size="small" stretched disabled={busy || (consentRequired && !consent)} onClick={onAccept}>{busy ? 'Подключаем…' : 'Подключиться'}</Button>
-      <Button variant="ghost" onClick={onHome}>Сейчас не могу</Button>
+      <Button variant="destructive" size="small" stretched disabled={busy} onClick={onBusy}>Сейчас занят</Button>
     </Flex>
   );
 }

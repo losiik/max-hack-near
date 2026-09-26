@@ -253,6 +253,32 @@ async def test_drafts_can_be_listed(client):
     assert [item["id"] for item in response.json()] == [session_id]
 
 
+async def test_owner_can_delete_application(client):
+    headers = await login(client, "sergey")
+    session_id = await start_session(client, headers)
+
+    removed = await client.delete(f"/api/v1/service-sessions/{session_id}", headers=headers)
+    reread = await client.get(f"/api/v1/service-sessions/{session_id}", headers=headers)
+
+    assert removed.status_code == 204
+    assert reread.status_code == 404
+
+
+async def test_application_cannot_be_deleted_by_another_user(client):
+    owner_headers = await login(client, "sergey")
+    session_id = await start_session(client, owner_headers)
+    stranger_headers = await login(client, "oleg")
+
+    forbidden = await client.delete(
+        f"/api/v1/service-sessions/{session_id}",
+        headers=stranger_headers,
+    )
+    reread = await client.get(f"/api/v1/service-sessions/{session_id}", headers=owner_headers)
+
+    assert forbidden.status_code == 403
+    assert reread.status_code == 200
+
+
 async def test_next_from_the_last_step_is_rejected(client):
     headers = await login(client, "sergey")
     session_id = await start_session(client, headers)

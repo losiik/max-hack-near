@@ -20,6 +20,7 @@ export function AnnotationToolbar({ kind, label, onKindChange, onLabelChange, on
     {kind !== 'pointer' && <div className="annotation-toolbar__scroll"><Flex gap={8}>
       {labels.map((item) => <Button key={item} size="small" variant={label === item ? 'secondary' : 'ghost'} onClick={() => onLabelChange(item)}>{item}</Button>)}
     </Flex></div>}
+    {kind !== 'pointer' && <label className="annotation-toolbar__custom"><Typography.Text>Своя подпись для владельца</Typography.Text><input className="max-input" maxLength={80} value={label} onChange={(event) => onLabelChange(event.target.value)} placeholder="Например: выберите этот вариант" /><Typography.Text className="muted-text">Владелец увидит: «{label.trim() || 'без подписи'}»</Typography.Text></label>}
     <Button size="small" variant="ghost" onClick={onClear}>Убрать мои пометки</Button>
   </section>;
 }

@@ -6,11 +6,13 @@ import { ProjectedField } from '../components/ProjectedField';
 import { ScreenIntro, StatusMark } from '../components/ScreenIntro';
 import { ParticipantBadge } from '../components/ParticipantBadge';
 import { useAssistStore } from '../realtime/assistStore';
+import { VoiceControl } from '../components/VoiceControl';
 
 export function H3Helper({ snapshot, connection, onLeave }: { snapshot: ProjectedState; connection: string; onLeave: () => void }) {
   const owner = snapshot.session.owner;
   const sendCommand = useAssistStore((state) => state.sendCommand);
   const confusionElementId = useAssistStore((state) => state.confusionElementId);
+  const annotationFeedback = useAssistStore((state) => state.annotationFeedback);
   const [kind, setKind] = useState<AnnotationKind>('highlight');
   const [label, setLabel] = useState('Нажмите сюда');
   const lastPointerAt = useRef(0);
@@ -33,10 +35,12 @@ export function H3Helper({ snapshot, connection, onLeave }: { snapshot: Projecte
     <Flex direction="column" gap={12}>
       <ScreenIntro eyebrow={`Вы помогаете ${owner.display_name}`} title={snapshot.current_step.title} meta={`Шаг ${snapshot.current_step.index} из ${snapshot.service.total_steps}`} />
       {me && <ParticipantBadge participant={me} />}
+      <VoiceControl sessionId={snapshot.session.id} />
       {canSeeHints && snapshot.current_step.operator_hint && <div className="notice notice--subtle"><Typography.Label>Подсказка специалисту</Typography.Label><Typography.Text>{snapshot.current_step.operator_hint}</Typography.Text></div>}
       {connection === 'reconnecting' && <div className="notice notice--subtle">Восстанавливаем соединение…</div>}
       {snapshot.session.recording?.status === 'recording' && <div className="recording-state"><StatusMark tone="attention" /><Typography.Text>Идёт запись</Typography.Text></div>}
       {confusionElementId && <div className="notice notice--subtle">{owner.display_name} просит подсказать по полю «{snapshot.current_step.elements.find((element) => element.id === confusionElementId)?.label ?? 'этому полю'}».</div>}
+      {annotationFeedback && <div className={`notice ${annotationFeedback.state === 'error' ? 'notice--error' : 'notice--subtle'}`}><Typography.Text>{annotationFeedback.message}</Typography.Text></div>}
       {canAnnotate && <AnnotationToolbar kind={kind} label={label} onKindChange={setKind} onLabelChange={setLabel} onClear={() => sendCommand?.('annotation.clear', {})} />}
       <Flex direction="column" gap={12}>
         {snapshot.current_step.elements.map((element) => <Fragment key={element.id}>

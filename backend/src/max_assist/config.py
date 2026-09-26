@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     field_encryption_key: str = "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="
     cors_origins: str = "http://localhost:5173"
     max_bot_token: str = ""
-    max_bot_username: str = "max_assist_bot"
+    max_bot_username: str = "t562_hakaton_max_bot"
     # у platform-api2 сертификат Минцифры, которого нет в доверенных ни в Windows, ни в образе
     max_api_base: str = "https://platform-api.max.ru"
     init_data_max_age_seconds: int = 86400

@@ -63,7 +63,7 @@ services:
       FIELD_ENCRYPTION_KEY: ${FIELD_ENCRYPTION_KEY:-MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://localhost:3000}
       MAX_BOT_TOKEN: ${MAX_BOT_TOKEN:-}
-      MAX_BOT_USERNAME: ${MAX_BOT_USERNAME:-max_assist_bot}
+      MAX_BOT_USERNAME: ${MAX_BOT_USERNAME:-t562_hakaton_max_bot}
       LIVEKIT_URL: ${LIVEKIT_URL:-ws://localhost:7880}
       LIVEKIT_API_URL: http://livekit:7880
       LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-devkey}
@@ -93,7 +93,7 @@ services:
     environment:
       LIVEKIT_KEYS: "${LIVEKIT_API_KEY:-devkey}: ${LIVEKIT_API_SECRET:-dev-livekit-secret-change-me-32-bytes}"
     volumes:
-      - ./livekit/livekit.yaml:/etc/livekit.yaml:ro
+      - ${LIVEKIT_CONFIG_FILE:-./livekit/livekit.yaml}:/etc/livekit.yaml:ro
     ports:
       - "${LIVEKIT_BIND_ADDRESS:-127.0.0.1}:7880:7880"
       - "7881:7881"

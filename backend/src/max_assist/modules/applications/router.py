@@ -55,6 +55,12 @@ async def get_session(session_id: UUID, user: CurrentUser, session: DbSession) -
     return await respond(session, row)
 
 
+@router.delete("/{session_id}", status_code=204)
+async def delete_session(session_id: UUID, user: CurrentUser, session: DbSession) -> Response:
+    await service.delete_session(session, user, session_id)
+    return Response(status_code=204)
+
+
 @router.patch("/{session_id}/fields", response_model=ServiceSessionOut)
 async def update_fields(
     session_id: UUID,

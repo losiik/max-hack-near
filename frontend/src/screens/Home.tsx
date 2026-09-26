@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { Avatar, Button, CellList, CellSimple, Flex, IconButton, Typography } from '@maxhub/max-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { AuthUser, ServiceSession, ServiceSummary } from '../api/client';
-import { deleteServiceSession } from '../api/client';
-import { queryKeys, queryPolicy, removeCachedSession, servicesQuery, sessionsQuery } from '../api/queries';
+import { callHelpCallback, deleteServiceSession, dismissHelpCallback, markHelpCallbackReady, type AssistInvite, type AssistSession, type HelpCallback } from '../api/client';
+import { callbacksQuery, queryKeys, queryPolicy, removeCachedSession, servicesQuery, sessionsQuery } from '../api/queries';
 import { launchIntentLabel, type LaunchIntent } from '../platform/startParam';
 import { ScreenIntro, SectionHeading, StatusMark } from '../components/ScreenIntro';
 import { ConfirmDialog } from '../components/AppDialog';
@@ -14,6 +14,9 @@ interface HomeProps {
   onOpenService: (service: ServiceSummary, draft?: ServiceSession) => void;
   onOpenOperatorQueue?: () => void;
   onOpenTrustedHelpers: () => void;
+  onOpenHelpingFor: () => void;
+  onOpenHistory: () => void;
+  onOpenCallback: (assist: AssistSession, invite: AssistInvite) => void;
 }
 
 function TrashIcon() {
@@ -30,11 +33,13 @@ function sessionStatus(session: ServiceSession): string {
   return `Черновик · шаг ${session.current_step.index} из ${session.total_steps}`;
 }
 
-export function Home({ user, launchIntent, onOpenService, onOpenOperatorQueue, onOpenTrustedHelpers }: HomeProps) {
+export function Home({ user, launchIntent, onOpenService, onOpenOperatorQueue, onOpenTrustedHelpers, onOpenHelpingFor, onOpenHistory, onOpenCallback }: HomeProps) {
   const queryClient = useQueryClient();
   const [deleteCandidate, setDeleteCandidate] = useState<ServiceSession | null>(null);
   const services = useQuery({ queryKey: queryKeys.services(), queryFn: servicesQuery, ...queryPolicy });
   const sessions = useQuery({ queryKey: queryKeys.sessions(), queryFn: sessionsQuery, ...queryPolicy });
+  const ownerCallbacks = useQuery({ queryKey: queryKeys.callbacks('owner'), queryFn: callbacksQuery, ...queryPolicy });
+  const helperCallbacks = useQuery({ queryKey: queryKeys.callbacks('helper'), queryFn: callbacksQuery, ...queryPolicy });
   const removeSession = useMutation({
     mutationFn: deleteServiceSession,
     onSuccess: (_, sessionId) => {
@@ -43,6 +48,10 @@ export function Home({ user, launchIntent, onOpenService, onOpenOperatorQueue, o
     },
   });
   const error = services.error ?? sessions.error ?? removeSession.error;
+  const refreshCallbacks = () => void Promise.all([ownerCallbacks.refetch(), helperCallbacks.refetch()]);
+  const callCallback = useMutation({ mutationFn: callHelpCallback, onSuccess: (result) => onOpenCallback(result.assist_session, result.invite) });
+  const readyCallback = useMutation({ mutationFn: markHelpCallbackReady, onSuccess: refreshCallbacks });
+  const dismissCallback = useMutation({ mutationFn: dismissHelpCallback, onSuccess: refreshCallbacks });
 
   const draftFor = (code: string) => sessions.data?.find((session) => session.service.code === code && session.status === 'draft');
 
@@ -76,6 +85,11 @@ export function Home({ user, launchIntent, onOpenService, onOpenOperatorQueue, o
 
       {user.staff && <Button size="small" stretched variant="secondary" onClick={onOpenOperatorQueue}>Открыть очередь МФЦ</Button>}
       <Button size="small" stretched variant="secondary" onClick={onOpenTrustedHelpers}>Мои близкие</Button>
+      <Button size="small" stretched variant="secondary" onClick={onOpenHelpingFor}>Кому я помогаю</Button>
+      <Button size="small" stretched variant="secondary" onClick={onOpenHistory}>Мои консультации</Button>
+
+      {ownerCallbacks.data?.map((callback: HelpCallback) => <div className="notice" key={callback.id}><Flex direction="column" gap={8}><Typography.Label>{callback.status === 'ready' ? `${callback.helper.display_name} готов помочь` : `${callback.helper.display_name} сейчас занят`}</Typography.Label><Typography.Text>{callback.service.title}</Typography.Text>{callback.status === 'ready' ? <Button size="small" stretched disabled={callCallback.isPending} onClick={() => callCallback.mutate(callback.id)}>Позвать</Button> : <Typography.Text className="muted-text">Мы сообщим, когда он освободится.</Typography.Text>}<Button size="small" stretched variant="destructive" disabled={dismissCallback.isPending} onClick={() => dismissCallback.mutate(callback.id)}>Убрать ожидание</Button></Flex></div>)}
+      {helperCallbacks.data?.filter((callback) => callback.status === 'busy').map((callback: HelpCallback) => <div className="notice" key={callback.id}><Flex direction="column" gap={8}><Typography.Label>Вы обещали помочь {callback.owner.display_name}</Typography.Label><Typography.Text>{callback.service.title}</Typography.Text><Button size="small" stretched disabled={readyCallback.isPending} onClick={() => readyCallback.mutate(callback.id)}>Освободился</Button></Flex></div>)}
 
       {error && (
         <div className="notice notice--error">

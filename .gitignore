@@ -23,6 +23,7 @@ htmlcov/
 .env
 .env.*
 !.env.example
+livekit/livekit.production.yaml
 
 # Frontend
 node_modules/

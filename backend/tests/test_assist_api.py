@@ -77,6 +77,22 @@ async def test_second_live_assist_points_to_the_first_one(client):
     assert again.json()["error"]["details"]["assist_session_id"] == body["id"]
 
 
+async def test_deleting_application_ends_assist_but_keeps_meeting(client):
+    headers, service_session_id, body = await owner_with_assist(client)
+
+    removed = await client.delete(
+        f"/api/v1/service-sessions/{service_session_id}",
+        headers=headers,
+    )
+    meeting = await client.get(f"/api/v1/assist-sessions/{body['id']}", headers=headers)
+
+    assert removed.status_code == 204
+    assert meeting.status_code == 200
+    assert meeting.json()["status"] == "ended"
+    assert meeting.json()["end_reason"] == "cancelled"
+    assert meeting.json()["service_session_id"] is None
+
+
 async def test_assist_needs_own_open_application(client):
     owner_headers = await login(client, "ludmila")
     service_session_id = await start_session(client, owner_headers)

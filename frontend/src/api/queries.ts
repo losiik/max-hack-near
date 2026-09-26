@@ -7,10 +7,16 @@ import {
   getAssistSummary,
   getDemoInbox,
   getDevUsers,
+  getDevOutbox,
   getServiceSessions,
   getMe,
   getOperatorQueue,
   getTrustedHelpers,
+  getHelpingFor,
+  getConsultations,
+  getConsultation,
+  getConsultationReplay,
+  getHelpCallbacks,
   getService,
   getServices,
   type AssistSession,
@@ -19,6 +25,7 @@ import {
 
 export const queryKeys = {
   devUsers: () => ['dev-users'] as const,
+  devOutbox: () => ['dev-outbox'] as const,
   services: () => ['services'] as const,
   service: (code: string) => ['services', code] as const,
   sessions: () => ['service-sessions'] as const,
@@ -32,6 +39,11 @@ export const queryKeys = {
   assistInvite: (token: string) => ['assist-invites', token] as const,
   operatorQueue: () => ['operator', 'requests'] as const,
   trustedHelpers: () => ['trusted-helpers'] as const,
+  helpingFor: () => ['trusted-helpers', 'helping-for'] as const,
+  consultations: (as: 'owner' | 'helper') => ['consultations', as] as const,
+  consultation: (id: string) => ['consultations', id] as const,
+  replay: (id: string) => ['consultations', id, 'replay'] as const,
+  callbacks: (as: 'owner' | 'helper') => ['help-callbacks', as] as const,
 };
 
 export const queryPolicy = {
@@ -41,6 +53,7 @@ export const queryPolicy = {
 export function devUsersQuery({ signal }: QueryFunctionContext<ReturnType<typeof queryKeys.devUsers>>) {
   return getDevUsers(signal);
 }
+export function devOutboxQuery({ signal }: QueryFunctionContext<ReturnType<typeof queryKeys.devOutbox>>) { return getDevOutbox(signal); }
 
 export function servicesQuery({ signal }: QueryFunctionContext<ReturnType<typeof queryKeys.services>>) {
   return getServices(signal);
@@ -84,6 +97,11 @@ export function assistInviteQuery({ queryKey, signal }: QueryFunctionContext<Ret
 
 export function operatorQueueQuery({ signal }: QueryFunctionContext<ReturnType<typeof queryKeys.operatorQueue>>) { return getOperatorQueue(signal); }
 export function trustedHelpersQuery({ signal }: QueryFunctionContext<ReturnType<typeof queryKeys.trustedHelpers>>) { return getTrustedHelpers(signal); }
+export function helpingForQuery({ signal }: QueryFunctionContext<ReturnType<typeof queryKeys.helpingFor>>) { return getHelpingFor(signal); }
+export function consultationsQuery({ queryKey, signal }: QueryFunctionContext<ReturnType<typeof queryKeys.consultations>>) { return getConsultations(queryKey[1], signal); }
+export function consultationQuery({ queryKey, signal }: QueryFunctionContext<ReturnType<typeof queryKeys.consultation>>) { return getConsultation(queryKey[1], signal); }
+export function replayQuery({ queryKey, signal }: QueryFunctionContext<ReturnType<typeof queryKeys.replay>>) { return getConsultationReplay(queryKey[1], signal); }
+export function callbacksQuery({ queryKey, signal }: QueryFunctionContext<ReturnType<typeof queryKeys.callbacks>>) { return getHelpCallbacks(queryKey[1], signal); }
 
 export function cacheSession(queryClient: QueryClient, session: ServiceSession): void {
   queryClient.setQueryData(queryKeys.session(session.id), session);
