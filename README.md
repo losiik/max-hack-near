@@ -143,34 +143,21 @@ sudo docker rm ryadom-dist
 
 **5. Настроить Nginx и выпустить сертификаты**
 
-Установить Nginx и Certbot и выпустить сертификаты для обоих доменов:
+Установить Nginx и Certbot:
 
 ```bash
 sudo apt update
 sudo apt install -y nginx certbot python3-certbot-nginx
-sudo certbot certonly --nginx -d <DOMAIN>
-sudo certbot certonly --nginx -d voice.<DOMAIN>
 ```
 
 Создать файл `/etc/nginx/sites-available/max-hackathon` со следующим содержимым, заменив `<DOMAIN>` на свой домен во всех местах:
 
 ```nginx
+# голос: LiveKit
 server {
     listen 80;
     listen [::]:80;
-    server_name <DOMAIN> voice.<DOMAIN>;
-    return 301 https://$host$request_uri;
-}
-
-# голос: LiveKit
-server {
-    listen 443 ssl;
-    listen [::]:443 ssl;
     server_name voice.<DOMAIN>;
-
-    ssl_certificate /etc/letsencrypt/live/voice.<DOMAIN>/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/voice.<DOMAIN>/privkey.pem;
-    ssl_protocols TLSv1.2 TLSv1.3;
 
     location / {
         proxy_pass http://127.0.0.1:7880;
@@ -180,7 +167,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Forwarded-Proto $scheme;
         proxy_read_timeout 3600s;
         proxy_send_timeout 3600s;
         proxy_buffering off;
@@ -189,13 +176,9 @@ server {
 
 # mini app и API
 server {
-    listen 443 ssl;
-    listen [::]:443 ssl;
+    listen 80;
+    listen [::]:80;
     server_name <DOMAIN>;
-
-    ssl_certificate /etc/letsencrypt/live/<DOMAIN>/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/<DOMAIN>/privkey.pem;
-    ssl_protocols TLSv1.2 TLSv1.3;
 
     root /var/www/max-hackathon;
     index index.html;
@@ -206,7 +189,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Forwarded-Proto $scheme;
         proxy_read_timeout 120s;
     }
 
@@ -223,7 +206,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Forwarded-Proto $scheme;
         proxy_read_timeout 3600s;
         proxy_send_timeout 3600s;
     }
@@ -234,13 +217,16 @@ server {
 }
 ```
 
-Включить сайт и перечитать конфигурацию:
+Включить сайт и выпустить сертификат:
 
 ```bash
 sudo ln -s /etc/nginx/sites-available/max-hackathon /etc/nginx/sites-enabled/max-hackathon
 sudo nginx -t
 sudo systemctl reload nginx
+sudo certbot --nginx -d <DOMAIN> -d voice.<DOMAIN>
 ```
+
+Certbot выпустит один сертификат на оба домена, сам допишет в оба блока `listen 443 ssl` и пути к сертификату и включит перенаправление с HTTP на HTTPS. Продление сертификата Certbot настраивает автоматически.
 
 **6. Подключить MAX.** В кабинете MAX укажите адрес mini app бота: `https://<DOMAIN>`. Webhook для ответа на «Начать» и `/start` API регистрирует сам при старте.
 
