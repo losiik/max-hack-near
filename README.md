@@ -93,6 +93,7 @@ Compose читает файл `.env` в корне репозитория. Бе�
 | `CORS_ORIGINS` | `http://localhost:5173,http://localhost:3000` | Разрешённые адреса frontend |
 | `MAX_BOT_TOKEN` | пусто | Токен бота MAX. Без него сообщения бота видны только в dev-ящике |
 | `MAX_BOT_USERNAME` | `t562_hakaton_max_bot` | Имя бота для ссылок на mini app |
+| `MAX_WEBHOOK_URL`, `MAX_WEBHOOK_SECRET` | пусто | Адрес `https://<домен>/api/v1/max/webhook` и секрет для ответа бота на «Начать» и `/start`. API подписывает бота при старте; без обоих значений бот только отправляет сообщения |
 | `REVIEW_LOGIN`, `REVIEW_PASSWORD` | `review` и пусто | Вход для автоматической проверки API. Пока пароль пустой или короче 16 символов, вход закрыт |
 | `YANDEX_API_KEY`, `YANDEX_FOLDER_ID` | пусто | Ключ и каталог Yandex AI Studio для цифрового сотрудника |
 | `AI_LLM_MODEL` | `qwen3-235b-a22b-fp8/latest` | Языковая модель цифрового сотрудника |

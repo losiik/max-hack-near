@@ -62,3 +62,23 @@ async def send(max_user_id: int, text: str, buttons: list[dict]) -> bool:
     except Exception:
         logger.exception("bot message failed")
     return False
+
+
+async def subscribe() -> None:
+    # подписка на /start: без адреса и секрета бот только пишет сам
+    if not enabled() or not settings.max_webhook_url or not settings.max_webhook_secret:
+        return
+    payload = {
+        "url": settings.max_webhook_url,
+        "update_types": ["bot_started", "message_created"],
+        "secret": settings.max_webhook_secret,
+    }
+    try:
+        async with client() as http:
+            response = await http.post("/subscriptions", json=payload)
+        if response.status_code == 200:
+            logger.info("bot webhook is %s", settings.max_webhook_url)
+            return
+        logger.warning("bot webhook rejected: %s %s", response.status_code, response.text[:200])
+    except Exception:
+        logger.exception("could not subscribe bot webhook")

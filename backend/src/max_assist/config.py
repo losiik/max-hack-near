@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     max_bot_username: str = "t562_hakaton_max_bot"
     # у platform-api2 сертификат Минцифры, которого нет в доверенных ни в Windows, ни в образе
     max_api_base: str = "https://platform-api.max.ru"
+    # входящие события бота (/start): MAX шлёт их на этот адрес с секретом в заголовке
+    max_webhook_url: str = ""
+    max_webhook_secret: str = ""
     init_data_max_age_seconds: int = 86400
     # вход для автоматической проверки жюри; пока пароль не задан, вход закрыт
     review_login: str = "review"

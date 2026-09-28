@@ -98,3 +98,29 @@ async def operator_requested(staff: User, owner_name: str, service_title: str) -
         f"{owner_name} ждёт сотрудника МФЦ: услуга «{service_title}»",
         [Button("Открыть очередь", "oq")],
     )
+
+
+WELCOME = (
+    "Здравствуйте! Это «Рядом» — помощь с госуслугами. Откройте приложение и начните заявление, "
+    "а если что-то непонятно, позовите близкого, сотрудника МФЦ или цифрового сотрудника"
+)
+
+
+def start_sender(update: dict) -> int | None:
+    # кто нажал «Начать» или написал /start; остальные сообщения бот не разбирает
+    kind = update.get("update_type")
+    if kind == "bot_started":
+        return (update.get("user") or {}).get("user_id")
+    if kind == "message_created":
+        message = update.get("message") or {}
+        text = ((message.get("body") or {}).get("text") or "").strip()
+        if text.split(maxsplit=1)[:1] == ["/start"]:
+            return (message.get("sender") or {}).get("user_id")
+    return None
+
+
+async def on_bot_update(update: dict) -> bool:
+    max_user_id = start_sender(update)
+    if max_user_id is None or not max_bot.enabled():
+        return False
+    return await max_bot.send(max_user_id, WELCOME, [as_link(Button("Открыть приложение", "home"))])

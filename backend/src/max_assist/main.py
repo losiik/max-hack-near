@@ -47,6 +47,7 @@ for listener in (voice_sync.on_published, support_sync.on_published):
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     await max_bot.load_identity()
+    await max_bot.subscribe()
     loops = []
     if settings.cleanup_enabled:
         loops.append(asyncio.create_task(maintenance.run_forever()))

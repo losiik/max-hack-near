@@ -159,3 +159,94 @@ async def test_without_a_token_nothing_is_sent(monkeypatch):
 
     assert (delivered, sent) == (False, [])
     assert await max_bot.whoami() is None
+
+
+SECRET = "webhook-secret-for-tests"
+
+
+def started(max_user_id=777):
+    return {"update_type": "bot_started", "timestamp": 1, "chat_id": 10, "user": {"user_id": max_user_id}}
+
+
+def written(text, max_user_id=777):
+    return {
+        "update_type": "message_created",
+        "timestamp": 1,
+        "message": {"sender": {"user_id": max_user_id}, "recipient": {"chat_id": 10}, "body": {"text": text}},
+    }
+
+
+async def post_update(client, update, secret=SECRET):
+    return await client.post("/api/v1/max/webhook", json=update, headers={"X-Max-Bot-Api-Secret": secret})
+
+
+@pytest.fixture
+def webhook_on(monkeypatch):
+    monkeypatch.setattr(settings, "max_webhook_secret", SECRET)
+
+
+async def test_start_button_and_command_get_a_link_to_the_mini_app(client, max_server, webhook_on):
+    server = max_server(FakeMax())
+
+    first = await post_update(client, started())
+    second = await post_update(client, written("/start"))
+
+    assert first.status_code == second.status_code == 200
+    replies = server.messages()
+    assert len(replies) == 2
+    for reply in replies:
+        assert reply.url.params["user_id"] == "777"
+        body = json.loads(reply.content)
+        assert body["text"].startswith("Здравствуйте! Это «Рядом»")
+        [[button]] = body["attachments"][0]["payload"]["buttons"]
+        assert button == {
+            "type": "link",
+            "text": "Открыть приложение",
+            "url": f"https://max.ru/{settings.max_bot_username}?startapp=home",
+        }
+
+
+async def test_other_messages_are_left_without_an_answer(client, max_server, webhook_on):
+    server = max_server(FakeMax())
+
+    response = await post_update(client, written("здравствуйте"))
+    await post_update(client, {"update_type": "message_callback", "timestamp": 1})
+
+    assert response.status_code == 200
+    assert server.messages() == []
+
+
+async def test_webhook_needs_the_secret(client, max_server, monkeypatch):
+    server = max_server(FakeMax())
+
+    switched_off = await post_update(client, started())
+    monkeypatch.setattr(settings, "max_webhook_secret", SECRET)
+    wrong = await post_update(client, started(), secret="guess")
+
+    assert switched_off.status_code == 403
+    assert wrong.status_code == 401
+    assert server.messages() == []
+
+
+async def test_bot_subscribes_to_start_at_startup(max_server, monkeypatch):
+    server = max_server(FakeMax(body={"success": True}))
+    monkeypatch.setattr(settings, "max_webhook_url", "https://ryadom.example/api/v1/max/webhook")
+    monkeypatch.setattr(settings, "max_webhook_secret", SECRET)
+
+    await max_bot.subscribe()
+
+    [request] = server.requests
+    assert request.url.path == "/subscriptions"
+    assert json.loads(request.content) == {
+        "url": "https://ryadom.example/api/v1/max/webhook",
+        "update_types": ["bot_started", "message_created"],
+        "secret": SECRET,
+    }
+
+
+async def test_no_subscription_without_address(max_server):
+    server = max_server(FakeMax())
+
+    await max_bot.subscribe()
+
+    assert server.requests == []
