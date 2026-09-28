@@ -1,5 +1,6 @@
 from uuid import UUID
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from max_assist.errors import Conflict, Forbidden, NotFound
@@ -7,7 +8,8 @@ from max_assist.modules.assist import domain as assist_domain
 from max_assist.modules.assist import events, journal
 from max_assist.modules.assist import service as assist_service
 from max_assist.modules.assist.models import AssistSession
-from max_assist.modules.identity.models import User
+from max_assist.modules.identity.models import StaffProfile, User
+from max_assist.modules.notifications import service as notifications
 from max_assist.modules.support_desk import queries
 from max_assist.modules.support_desk.models import OperatorRequest
 from max_assist.security import AgentPass
@@ -65,6 +67,7 @@ async def request_by_agent(
     journal.note(session, assist.id, "operator.requested", {"topic": topic, "source": "ai_escalation"})
     await session.commit()
     await announce_queue(session)
+    await notify_staff(session, assist)
     return request
 
 
@@ -73,6 +76,7 @@ async def request_operator(session: AsyncSession, user: User, assist_id: UUID, t
     request = await add_request(session, user, assist, topic)
     await session.commit()
     await announce_queue(session)
+    await notify_staff(session, assist)
     return request
 
 
@@ -91,6 +95,7 @@ async def request_from_application(
     request = await add_request(session, user, assist, topic)
     await session.commit()
     await announce_queue(session)
+    await notify_staff(session, assist)
     return assist, request
 
 
@@ -175,3 +180,12 @@ async def announce_queue(session: AsyncSession, also: OperatorRequest | None = N
         owner = assist_domain.participant_of(assist, assist.owner_id)
         message = events.envelope(assist.id, "operator_request.updated", queries.payload(request, position))
         await events.publish(assist.id, [events.Delivery([owner.id], message)])
+
+
+async def notify_staff(session: AsyncSession, assist: AssistSession) -> None:
+    # новое обращение: пишем в MAX всем сотрудникам МФЦ, кнопка открывает очередь
+    owner = await session.get(User, assist.owner_id)
+    title = await assist_service.service_title(session, assist.service_session_id)
+    staff = await session.scalars(select(User).join(StaffProfile).where(User.id != assist.owner_id))
+    for user in staff:
+        await notifications.operator_requested(user, owner.display_name, title)

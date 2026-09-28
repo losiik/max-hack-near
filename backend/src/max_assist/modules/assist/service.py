@@ -249,7 +249,7 @@ async def helper_is_ready(session: AsyncSession, user: User, callback_id: UUID) 
     title = await service_title(session, callback.service_session_id)
     owner = await session.get(User, callback.owner_id)
     await session.commit()
-    await notifications.helper_ready(owner, user.display_name, title)
+    await notifications.helper_ready(owner, user.display_name, title, callback.id)
     return callback
 
 

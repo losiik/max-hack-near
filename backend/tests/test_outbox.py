@@ -5,7 +5,9 @@ import pytest
 from max_assist.config import settings
 from max_assist.modules.identity.models import User
 from max_assist.modules.notifications import service as notifications
+from tests.helpers import login
 from tests.test_help_callbacks import busy_helper
+from tests.test_support_desk import ask_for_operator
 
 
 @pytest.fixture(autouse=True)
@@ -28,6 +30,7 @@ async def test_busy_helper_is_offered_a_button_to_come_back(client):
     [to_helper] = await outbox(client, helper_headers)
 
     assert to_owner["text"].startswith("Сергей К. сейчас не может помочь")
+    assert to_owner["buttons"] == [{"text": "Открыть заявление", "start_param": "home"}]
     assert "Людмила П." in to_helper["text"]
     assert to_helper["buttons"] == [{"text": "Теперь могу помочь", "start_param": f"ar_{callback_id}"}]
 
@@ -42,8 +45,21 @@ async def test_owner_is_told_when_helper_can_help_and_helper_gets_a_new_invite(c
 
     token = called["invite"]["token"]
     assert ready["text"] == "Сергей К. может помочь с услугой «Компенсация расходов на оплату ЖКУ»"
+    assert ready["buttons"] == [{"text": "Позвать", "start_param": f"oc_{callback_id}"}]
     assert invite["text"] == "Людмила П. просит помочь с услугой «Компенсация расходов на оплату ЖКУ»"
     assert [button["start_param"] for button in invite["buttons"]] == [f"as_{token}", f"ad_{token}"]
+
+
+async def test_staff_are_told_about_a_new_request_in_the_queue(client):
+    anna = await login(client, "anna")
+    sergey = await login(client, "sergey")
+
+    await ask_for_operator(client)
+
+    [to_staff] = await outbox(client, anna)
+    assert to_staff["text"] == "Людмила П. ждёт сотрудника МФЦ: услуга «Компенсация расходов на оплату ЖКУ»"
+    assert to_staff["buttons"] == [{"text": "Открыть очередь", "start_param": "oq"}]
+    assert await outbox(client, sergey) == []
 
 
 async def test_outbox_keeps_only_the_latest_messages():

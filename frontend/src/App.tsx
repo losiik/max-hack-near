@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Flex, Typography } from '@maxhub/max-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { acceptAssistInvite, agreeToRecording, ApiError, approveAssistParticipant, callDigitalEmployee, createAssistInvite, createAssistSession, endAssistSession, leaveAssistSession, loginWithMax, rejectAssistParticipant, releaseDigitalEmployee, requestOperatorForApplication, startServiceSession, type AssistInvite, type AssistSession, type AuthUser, type ServiceDefinition, type ServiceSession, type ServiceSummary, type SubmitResult } from './api/client';
+import { acceptAssistInvite, agreeToRecording, ApiError, approveAssistParticipant, callDigitalEmployee, callHelpCallback, createAssistInvite, createAssistSession, endAssistSession, leaveAssistSession, loginWithMax, rejectAssistParticipant, releaseDigitalEmployee, requestOperatorForApplication, startServiceSession, type AssistInvite, type AssistSession, type AuthUser, type ServiceDefinition, type ServiceSession, type ServiceSummary, type SubmitResult } from './api/client';
 import { InviteReadyDialog } from './components/InviteReadyDialog';
 import { ConfirmDialog } from './components/AppDialog';
 import { activeAssistsQuery, assistQuery, assistStateQuery, cacheAssistSession, cacheSession, queryKeys, serviceQuery, sessionQuery } from './api/queries';
@@ -109,6 +109,8 @@ export default function App() {
       else if (intent.kind === 'invite_declined') { setInviteToken(intent.token); setMode('helper-busy'); }
       else if (intent.kind === 'helper_ready') { setInviteToken(intent.callbackId); setMode('helper-ready'); }
       else if (intent.kind === 'pairing') { setInviteToken(intent.token); setMode('pairing-invite'); }
+      else if (intent.kind === 'call_helper') await callBackFromBot(intent.callbackId);
+      else if (intent.kind === 'operator_queue' && response.user.staff) setMode('operator-queue');
       else await restoreActiveAssist();
     }).catch((reason: Error) => { if (!disposed) { setError(reason.message); setMode('error'); } });
     return () => { disposed = true; };
@@ -126,7 +128,7 @@ export default function App() {
   }, [realtime.joinRequest]);
 
   if (mode === 'loading') return <AppShell><A0 message={maxUserHint ? `Входим как ${maxUserHint}` : undefined} /></AppShell>;
-  if (mode === 'dev') return <AppShell><D1 onLogin={beginUserSession} onHome={() => setMode('home')} onLaunch={(value) => { const intent = parseStartParam(value); if (intent.kind === 'assist_invite') { setInviteToken(intent.token); setMode('helper-invite'); } else if (intent.kind === 'invite_declined') { setInviteToken(intent.token); setMode('helper-busy'); } else if (intent.kind === 'helper_ready') { setInviteToken(intent.callbackId); setMode('helper-ready'); } else if (intent.kind === 'pairing') { setInviteToken(intent.token); setMode('pairing-invite'); } }} /></AppShell>;
+  if (mode === 'dev') return <AppShell><D1 onLogin={beginUserSession} onHome={() => setMode('home')} onLaunch={(value) => { const intent = parseStartParam(value); if (intent.kind === 'assist_invite') { setInviteToken(intent.token); setMode('helper-invite'); } else if (intent.kind === 'invite_declined') { setInviteToken(intent.token); setMode('helper-busy'); } else if (intent.kind === 'helper_ready') { setInviteToken(intent.callbackId); setMode('helper-ready'); } else if (intent.kind === 'pairing') { setInviteToken(intent.token); setMode('pairing-invite'); } else if (intent.kind === 'call_helper') { void callBackFromBot(intent.callbackId); } else if (intent.kind === 'operator_queue') { setMode('operator-queue'); } }} /></AppShell>;
   if (mode === 'error') return <AppShell><Flex direction="column" gap={12}><Typography.Title>Не удалось продолжить</Typography.Title><Typography.Text>{error || 'Откройте приложение из MAX и попробуйте снова.'}</Typography.Text><Button onClick={() => window.location.reload()}>Повторить</Button></Flex></AppShell>;
 
   async function openActiveAssist(assistId: string) {
@@ -183,6 +185,27 @@ export default function App() {
     } catch {
       // Home renders the query error and offers a retry; login itself should remain usable.
       setMode('home');
+    }
+  }
+
+  // «Позвать» по обещанию близкого: форме нужны заявление и описание услуги, поэтому открываем помощь целиком
+  async function openCalledBack(nextAssist: AssistSession, invite: AssistInvite) {
+    cacheAssistSession(queryClient, nextAssist);
+    void queryClient.invalidateQueries({ queryKey: queryKeys.callbacks('owner') });
+    setInviteReady(invite.delivery === 'share_required' ? invite : null);
+    await openActiveAssist(nextAssist.id);
+  }
+
+  // кнопка «Позвать» из сообщения бота
+  async function callBackFromBot(callbackId: string) {
+    setMode('loading');
+    try {
+      const result = await callHelpCallback(callbackId);
+      await openCalledBack(result.assist_session, result.invite);
+    } catch {
+      // обещание уже использовано или истекло — на главной видно актуальное состояние
+      setLaunchIntent({ kind: 'home' });
+      await restoreActiveAssist();
     }
   }
 
@@ -366,7 +389,7 @@ export default function App() {
 
   return <AppShell onBack={shellBack} title={shellTitle[mode] ?? 'Рядом'} hideHeader={hideShellHeader}>
     <div className={`screen-view screen-view--${mode}`} key={mode}>
-    {mode === 'home' && <Home user={user} launchIntent={launchIntent} onOpenServices={() => setMode('services')} onOpenService={(service, existingDraft) => void openService(service, existingDraft)} onOpenOperatorQueue={user.staff ? () => setMode('operator-queue') : undefined} onOpenTrustedHelpers={() => setMode('trusted-helpers')} onOpenHelpingFor={() => setMode('helping-for')} onOpenHistory={() => void openHistory()} onOpenActiveAssist={(id) => void openActiveAssist(id)} onOpenCallback={(nextAssist, invite) => { setAssist(nextAssist); setInviteReady(invite.delivery === 'share_required' ? invite : null); setMode('waiting'); }} />}
+    {mode === 'home' && <Home user={user} launchIntent={launchIntent} onOpenServices={() => setMode('services')} onOpenService={(service, existingDraft) => void openService(service, existingDraft)} onOpenOperatorQueue={user.staff ? () => setMode('operator-queue') : undefined} onOpenTrustedHelpers={() => setMode('trusted-helpers')} onOpenHelpingFor={() => setMode('helping-for')} onOpenHistory={() => void openHistory()} onOpenActiveAssist={(id) => void openActiveAssist(id)} onOpenCallback={(nextAssist, invite) => void openCalledBack(nextAssist, invite)} />}
     {mode === 'services' && <S1Services onOpenService={(service, existingDraft) => void openService(service, existingDraft)} />}
     {mode === 'trusted-helpers' && <T1TrustedHelpers />}
     {mode === 'helping-for' && <T5HelpingFor onOpen={(id) => { setAssist({ id } as AssistSession); setMode('helper-active'); }} onPairing={(token) => { setInviteToken(token); setMode('pairing-invite'); }} />}

@@ -3,14 +3,18 @@ export type LaunchIntent =
   | { kind: 'assist_invite'; token: string }
   | { kind: 'invite_declined'; token: string }
   | { kind: 'helper_ready'; callbackId: string }
+  | { kind: 'call_helper'; callbackId: string }
+  | { kind: 'operator_queue' }
   | { kind: 'pairing'; token: string }
   | { kind: 'unknown'; value: string };
 
 export function parseStartParam(value: string): LaunchIntent {
-  if (!value) return { kind: 'home' };
+  if (!value || value === 'home') return { kind: 'home' };
+  if (value === 'oq') return { kind: 'operator_queue' };
   if (value.startsWith('as_')) return { kind: 'assist_invite', token: value.slice(3) };
   if (value.startsWith('ad_')) return { kind: 'invite_declined', token: value.slice(3) };
   if (value.startsWith('ar_')) return { kind: 'helper_ready', callbackId: value.slice(3) };
+  if (value.startsWith('oc_')) return { kind: 'call_helper', callbackId: value.slice(3) };
   if (value.startsWith('pr_')) return { kind: 'pairing', token: value.slice(3) };
   return { kind: 'unknown', value };
 }
@@ -23,6 +27,10 @@ export function launchIntentLabel(intent: LaunchIntent): string {
       return 'Ответить «Сейчас занят»';
     case 'helper_ready':
       return 'Сообщить, что вы освободились';
+    case 'call_helper':
+      return 'Позвать помощника снова';
+    case 'operator_queue':
+      return 'Очередь обращений';
     case 'pairing':
       return 'Стать доверенным помощником';
     case 'unknown':

@@ -71,7 +71,7 @@ async def helper_busy(owner: User, helper_name: str) -> None:
     await send(
         owner,
         f"{helper_name} сейчас не может помочь. Заявление сохранено — напишем, когда появится возможность",
-        [Button("Открыть заявление")],
+        [Button("Открыть заявление", "home")],
     )
 
 
@@ -83,9 +83,18 @@ async def come_back_later(helper: User, owner_name: str, callback_id: UUID) -> N
     )
 
 
-async def helper_ready(owner: User, helper_name: str, service_title: str) -> None:
+async def helper_ready(owner: User, helper_name: str, service_title: str, callback_id: UUID) -> None:
+    # без start_param ссылка открыла бы чат с ботом, а не mini app
     await send(
         owner,
         f"{helper_name} может помочь с услугой «{service_title}»",
-        [Button("Позвать")],
+        [Button("Позвать", f"oc_{callback_id}")],
+    )
+
+
+async def operator_requested(staff: User, owner_name: str, service_title: str) -> bool:
+    return await send(
+        staff,
+        f"{owner_name} ждёт сотрудника МФЦ: услуга «{service_title}»",
+        [Button("Открыть очередь", "oq")],
     )
