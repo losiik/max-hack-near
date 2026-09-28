@@ -194,7 +194,7 @@ function CitizenHome({
                 <StatusMark tone="positive" />
                 {item.my_role === "owner"
                   ? "Вам помогают"
-                  : `Вы помогаете ${item.owner_display_name}`}
+                  : `Вы помогаете: ${item.owner_display_name}`}
               </div>
               <PersonRow
                 name={item.service_title}

@@ -7,6 +7,7 @@ import {
   ApiError,
   navigateService,
   updateServiceFields,
+  type FieldError,
   type ServiceDefinition,
   type ServiceSession,
 } from '../api/client';
@@ -147,6 +148,10 @@ export function S3Form({ definition, initialSession, onRegisterBack, onSessionCh
       applySession(next);
       if (next.current_step.id === 'confirmation') onConfirmation(next);
     } catch (reason) {
+      if (reason instanceof ApiError && reason.code === 'step_invalid') {
+        const stepErrors = (reason.details?.errors as FieldError[] | undefined) ?? [];
+        setSession((current) => ({ ...current, errors: stepErrors }));
+      }
       setActionError(reason instanceof Error ? reason.message : 'Не удалось перейти к следующему шагу');
     } finally { setNavigating(false); }
   }
