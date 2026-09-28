@@ -10,14 +10,6 @@ esac
 repo_root=$(cd "$(dirname "$0")/.." && pwd)
 cd "$repo_root"
 
-if [[ "${ALLOW_DIRTY:-0}" != 1 ]]; then
-  if ! git diff --quiet || ! git diff --cached --quiet || [[ -n "$(git ls-files --others --exclude-standard)" ]]; then
-    echo "Рабочее дерево не чистое. Сначала закоммитьте изменения или используйте ALLOW_DIRTY=1 осознанно." >&2
-    git status --short >&2
-    exit 1
-  fi
-fi
-
 vm="${VM:?Укажите сервер: VM=user@host}"
 domain="${DOMAIN:?Укажите домен: DOMAIN=example.ru}"
 app_dir="${APP_DIR:-/opt/max-hackathon}"
@@ -25,7 +17,7 @@ web_root="${WEB_ROOT:-/var/www/max-hackathon}"
 release="${DEPLOY_ID:-$(git rev-parse --short HEAD)-$(date -u +%Y%m%dT%H%M%SZ)}"
 
 if [[ "$scope" == frontend || "$scope" == all ]]; then
-  (cd frontend && npm run lint && npm run build)
+  (cd frontend && npm ci && npm run lint && npm run build)
   stage="${web_root}-stage-${release}"
   ssh "$vm" "mkdir -p '$stage'"
   rsync -az --delete frontend/dist/ "$vm:$stage/"

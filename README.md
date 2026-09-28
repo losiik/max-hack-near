@@ -33,7 +33,7 @@ Mini app для MAX, в котором человек заполняет зая�
 | `api` | Backend: FastAPI, REST `/api/v1`, WebSocket встречи, миграции при старте | `backend/Dockerfile` |
 | `postgres` | PostgreSQL 16: пользователи, заявления, встречи, журнал | образ `postgres:16` |
 | `livekit` | Голосовые комнаты (WebRTC) | образ `livekit/livekit-server:v1.13.7` |
-| `egress` | Записывает разговор в файл `recordings/<id>.ogg` | образ `livekit/egress:v1.14.1` |
+| `egress` | Записывает разговор в файл `/out/<id>.ogg` | образ `livekit/egress:v1.14.1` |
 | `recordings-init` | Один раз перед Egress выставляет права на каталог записей | образ `busybox:1.37` |
 | `redis` | Очередь заданий между LiveKit и Egress | образ `redis:7-alpine` |
 | `agent` | Цифровой сотрудник: LiveKit Agents, Yandex SpeechKit и модель Qwen | `agent/Dockerfile` |
@@ -47,7 +47,7 @@ Mini app для MAX, в котором человек заполняет зая�
    ▼
   api ──► postgres
    │  └─► livekit ◄── браузер (голос, WebRTC 7880–7882)
-   │         ├─► egress ──► ./recordings/*.ogg
+   │         ├─► egress ──► volume `local_recordings` (`/out/*.ogg`)
    │         └─► agent ──► Yandex AI Studio (распознавание, модель, синтез)
    └─► MAX Bot API (сообщения бота, если задан токен)
 ```
@@ -59,10 +59,10 @@ Backend устроен как модульный монолит: `identity` (в�
 Нужен только Docker. Из корня репозитория:
 
 ```bash
-docker compose --profile local up -d --build
+docker compose up --build -d
 ```
 
-Если в `.env` в корне указано `COMPOSE_PROFILES=local`, достаточно `docker compose up -d --build`.
+Команда поднимает весь локальный стек, включая frontend и Nginx; дополнительных `.env`, Node.js, Python и GNU Make для этого запуска не требуется. npm и Python-зависимости устанавливаются при сборке соответствующих Docker-образов. `make deploy-local` выполняет тот же запуск и дополнительно ждёт готовности API.
 
 Через 1–2 минуты после окончания сборки откройте `http://localhost:3000`. Проверить, что backend готов:
 
@@ -85,7 +85,6 @@ Compose читает файл `.env` в корне репозитория. Бе�
 
 | Переменная | По умолчанию | Назначение |
 |---|---|---|
-| `COMPOSE_PROFILES` | — | `local` — поднимать frontend и Nginx без флага `--profile local` |
 | `APP_ENV` | `dev` | `dev` разрешает вход тестовыми пользователями; в production — `prod` |
 | `JWT_SECRET` | dev-значение | Ключ подписи токенов входа |
 | `FIELD_ENCRYPTION_KEY` | dev-значение | Ключ Fernet для шифрования личных данных в базе |
@@ -148,7 +147,7 @@ Redis, Egress и агент наружу не публикуются. Если �
 
 ## Работа с данными
 
-- **Где хранится.** PostgreSQL в томе `pgdata`, записи встреч — файлы `.ogg` в каталоге `recordings/` в корне репозитория. Схема создаётся миграциями Alembic при каждом старте API; демо-услуга добавляется миграцией.
+- **Где хранится.** PostgreSQL в томе `pgdata`, локальные записи встреч — в Docker volume `local_recordings`. В production Compose подключает `./recordings` к контейнерам. Схема создаётся миграциями Alembic при каждом старте API; демо-услуга добавляется миграцией.
 - **Личные данные.** Поля формы делятся на публичные и личные по описанию услуги. Личные значения (ФИО, дата рождения, СНИЛС, адрес, доход, счёт) хранятся в базе в зашифрованном виде (Fernet, ключ `FIELD_ENCRYPTION_KEY`).
 - **Что видит помощник.** Сервер отдаёт каждому участнику свою проекцию формы: помощник получает «заполнено / не заполнено» вместо значения, а поля «только владельцу» приходят заблокированными. Цифровой сотрудник получает ту же проекцию, поэтому личные данные не попадают и в модель.
 - **Журнал встречи.** Сохраняются действия (переход по шагам, подсветки, «непонятно»), но не значения полей. Расшифровка речи человека не хранится; от цифрового сотрудника сохраняется только то, что он сказал сам.
@@ -173,7 +172,7 @@ Redis, Egress и агент наружу не публикуются. Если �
 
 ## Пошаговый сценарий проверки
 
-**1. Запуск.** Выполните `docker compose --profile local up -d --build`, затем `curl -fsS http://localhost:3000/health`.
+**1. Запуск.** Выполните `docker compose up --build -d`, затем `curl -fsS http://localhost:3000/health`.
 Ожидается: `{"status":"ok","db":"ok",…,"livekit":"ok",…}`.
 
 **2. Заявление.** Откройте `http://localhost:3000`, выберите «Людмила Петрова» → «Открыть приложение» → «Начать». Пройдите шаги; на последнем введите код из уведомления (повторно — кнопка «Показать демо-SMS») и нажмите «Отправить заявление».
@@ -245,31 +244,31 @@ python export_openapi.py
 Остановить, сохранив данные:
 
 ```bash
-docker compose --profile local stop
+docker compose stop
 ```
 
 Запустить снова без пересборки:
 
 ```bash
-docker compose --profile local up -d
+docker compose up -d
 ```
 
 Пересобрать после изменения кода:
 
 ```bash
-docker compose --profile local up -d --build
+docker compose up --build -d
 ```
 
 Остановить и удалить контейнеры, сохранив базу и записи:
 
 ```bash
-docker compose --profile local down
+docker compose down
 ```
 
-Удалить всё, включая базу (записи в `recordings/` удаляются отдельно):
+Удалить всё, включая базу и записи:
 
 ```bash
-docker compose --profile local down -v
+docker compose down -v
 ```
 
 Для одноразового Docker-прогона, запущенного через `make deploy-local`, используйте `make local-clean`: команда удалит контейнеры, сеть, созданные Compose локальные образы и оба named volume (`pgdata`, `local_recordings`). Она повторно задаёт локальные параметры и не использует production-секреты из корневого `.env`. Обычные `docker compose stop`, `make local-down` и `docker compose down` данные намеренно сохраняют. `local-clean` не удаляет общие базовые образы Docker и build cache; для них не запускайте глобальный `docker system prune`, если на машине есть другие проекты.
@@ -277,7 +276,7 @@ docker compose --profile local down -v
 Логи:
 
 ```bash
-docker compose --profile local logs -f api agent egress
+docker compose logs -f api agent egress
 ```
 
 Те же действия с проверкой готовности есть в `Makefile` (`make deploy-local`, `make local-down`, `make local-clean`, `make local-logs`) — для систем, где установлен GNU Make.

@@ -74,7 +74,7 @@ services:
       LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-dev-livekit-secret-change-me-32-bytes}
       RECORDINGS_DIR: /recordings
     volumes:
-      - ${RECORDINGS_VOLUME:-./recordings}:/recordings
+      - ${RECORDINGS_VOLUME:-local_recordings}:/recordings
     ports:
       - "${API_BIND_ADDRESS:-127.0.0.1}:${API_PORT:-8000}:8000"
     depends_on:
@@ -138,13 +138,12 @@ services:
           cpus: "1.0"
           memory: 1g
 
-  # Egress работает не от root (uid 1001, группа root), а Docker создаёт ./recordings владельцем root
-  # с правами 755. Без этого шага на Linux запись идёт, но готовый файл не сохраняется
+  # Подготавливает том записей для Egress (uid 1001, группа root), включая bind mount в production.
   recordings-init:
     image: busybox:1.37
     command: ["sh", "-c", "chown 1001:0 /out && chmod 0770 /out"]
     volumes:
-      - ${RECORDINGS_VOLUME:-./recordings}:/out
+      - ${RECORDINGS_VOLUME:-local_recordings}:/out
     restart: "no"
     logging: *logging
 
@@ -159,7 +158,7 @@ services:
       EGRESS_CONFIG_FILE: /etc/egress.yaml
     volumes:
       - ${LIVEKIT_EGRESS_CONFIG_FILE:-./livekit/egress.yaml}:/etc/egress.yaml:ro
-      - ${RECORDINGS_VOLUME:-./recordings}:/out
+      - ${RECORDINGS_VOLUME:-local_recordings}:/out
     depends_on:
       recordings-init:
         condition: service_completed_successfully
@@ -175,10 +174,8 @@ services:
           cpus: "2.0"
           memory: 1g
 
-  # Локальная production-сборка frontend. В production этот профиль не запускается:
-  # статика собирается локально и публикуется VM Nginx.
+  # Frontend для локального запуска; production статика собирается и публикуется отдельно.
   frontend:
-    profiles: ["local"]
     build:
       context: .
       dockerfile: frontend/Dockerfile
@@ -203,7 +200,6 @@ services:
   # LiveKit signaling оставлен на localhost:7880, а media-порты 7881/7882
   # проброшены самим сервисом livekit для WebRTC.
   nginx:
-    profiles: ["local"]
     image: nginx:1.27-alpine
     restart: unless-stopped
     ports:
