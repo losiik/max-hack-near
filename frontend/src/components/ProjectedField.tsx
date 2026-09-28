@@ -67,6 +67,13 @@ function ValueView({ element, selectView }: { element: ProjectedElement; selectV
 }
 
 export function ProjectedField({ element, error, interactive = false, confusion = false, onShow, onPointer, onPointerEnd, selectView }: ProjectedFieldProps) {
+  if (element.type === 'info') {
+    return (
+      <div className="projected-field projected-field--info" data-assist-id={element.id}>
+        <Typography.Text>{element.text}</Typography.Text>
+      </div>
+    );
+  }
   if (element.type === 'summary') {
     return (
       <div className="projected-field" data-assist-id={element.id}>

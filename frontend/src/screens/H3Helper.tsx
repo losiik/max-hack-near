@@ -60,7 +60,7 @@ export function H3Helper({ snapshot, connection, onLeave }: { snapshot: Projecte
   return (
     <div className="helper-screen">
       <header className="helper-head">
-        <PersonRow name={`Вы помогаете ${owner.display_name}`} meta={<><span className={connection === 'connected' && ownerOnline ? 'text-positive' : 'text-attention'}>{connection === 'reconnecting' ? 'восстанавливаем соединение' : connection === 'connected' && ownerOnline ? 'в сети' : 'нет соединения'}</span> · шаг {snapshot.current_step.index} из {snapshot.service.total_steps} · {snapshot.current_step.title}</>} photoUrl={owner.photo_url} tone="green" online={connection === 'connected' && ownerOnline} />
+        <PersonRow name={`Вы помогаете: ${owner.display_name}`} meta={<><span className={connection === 'connected' && ownerOnline ? 'text-positive' : 'text-attention'}>{connection === 'reconnecting' ? 'восстанавливаем соединение' : connection === 'connected' && ownerOnline ? 'в сети' : 'нет соединения'}</span> · шаг {snapshot.current_step.index} из {snapshot.service.total_steps} · {snapshot.current_step.title}</>} photoUrl={owner.photo_url} tone="green" online={connection === 'connected' && ownerOnline} />
         <VoiceControl sessionId={snapshot.session.id} role="helper" autoConnect={false} />
         {snapshot.session.recording?.status === 'recording' && <div className="recording-state"><span className="recording-dot" />Идёт запись</div>}
         <Button size="small" stretched variant="destructive" onClick={() => setConfirmLeave(true)}>Выйти из помощи</Button>
