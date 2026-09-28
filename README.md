@@ -56,6 +56,8 @@ Backend устроен как модульный монолит: `identity` (в�
 
 ## Запуск одной командой
 
+### Локально, без MAX
+
 Нужен только Docker. Из корня репозитория:
 
 ```bash
@@ -69,6 +71,114 @@ docker compose up --build -d
 ```bash
 curl -fsS http://localhost:3000/health
 ```
+
+Без MAX вместо входа через `initData` открывается экран с тестовыми пользователями: Людмила — заявитель, Сергей — близкий, Анна — сотрудник МФЦ, Олег — посторонний. Чтобы проверить помощь, откройте второе окно в режиме инкогнито и войдите за Сергея или Анну. Сообщения бота видны в «Сообщениях бота», кнопки в них работают так же, как в MAX. Swagger API — `http://localhost:8000/docs`. Для цифрового сотрудника положите `YANDEX_API_KEY` и `YANDEX_FOLDER_ID` в корневой `.env`.
+
+### На сервере с доменом
+
+Нужны:
+
+- Linux-сервер (Ubuntu или Debian) с Docker Engine и Docker Compose v2;
+- две DNS-записи A на IP сервера: `<DOMAIN>` для mini app и API и `voice.<DOMAIN>` для голоса — LiveKit нужен свой домен с TLS для `wss`;
+- открытые порты `80/tcp`, `443/tcp`, `7881/tcp` и `7882/udp`;
+- токен бота MAX, ключ и ID каталога Yandex AI Studio.
+
+**1. Клонировать репозиторий**
+
+```bash
+sudo git clone https://github.com/losiik/max-hackathon /opt/max-hackathon
+cd /opt/max-hackathon
+```
+
+**2. Создать `.env` в корне репозитория.** Секреты сгенерируйте командой `openssl rand -hex 32`, ключ шифрования — `openssl rand -base64 32`. Файл не должен попадать в Git.
+
+```dotenv
+APP_ENV=prod
+POSTGRES_USER=assist
+POSTGRES_PASSWORD=<секрет>
+POSTGRES_DB=assist
+DATABASE_URL=postgresql+asyncpg://assist:<тот же секрет>@postgres:5432/assist
+JWT_SECRET=<секрет>
+FIELD_ENCRYPTION_KEY=<openssl rand -base64 32>
+CORS_ORIGINS=https://<DOMAIN>
+
+MAX_BOT_TOKEN=<токен бота>
+MAX_BOT_USERNAME=<имя бота>
+MAX_WEBHOOK_URL=https://<DOMAIN>/api/v1/max/webhook
+MAX_WEBHOOK_SECRET=<секрет>
+REVIEW_LOGIN=review
+REVIEW_PASSWORD=<не короче 16 символов>
+
+YANDEX_API_KEY=<ключ>
+YANDEX_FOLDER_ID=<каталог>
+
+LIVEKIT_URL=wss://voice.<DOMAIN>
+LIVEKIT_API_URL=http://livekit:7880
+LIVEKIT_API_KEY=<ключ>
+LIVEKIT_API_SECRET=<секрет>
+LIVEKIT_NODE_IP=<публичный IP сервера>
+LIVEKIT_CONFIG_FILE=./livekit/livekit.production.yaml
+LIVEKIT_EGRESS_CONFIG_FILE=./livekit/egress.production.yaml
+RECORDINGS_VOLUME=./recordings
+```
+
+**3. Поднять backend, базу, голос и цифрового сотрудника.** Сервисы `frontend` и `nginx` из Compose нужны только для локального запуска: на сервере порт 443 обслуживает системный Nginx, поэтому сервисы перечислены явно.
+
+```bash
+sh scripts/render-livekit-production.sh
+sudo docker compose up -d --build postgres redis livekit api agent egress
+```
+
+Скрипт создаёт закрытые конфиги LiveKit и Egress из шаблонов в `deploy/livekit` с ключами из `.env`.
+
+**4. Собрать frontend.** Статика собирается тем же `frontend/Dockerfile` и копируется в каталог, который отдаёт Nginx:
+
+```bash
+sudo docker build -f frontend/Dockerfile -t ryadom-frontend .
+sudo docker create --name ryadom-dist ryadom-frontend
+sudo mkdir -p /var/www/max-hackathon
+sudo docker cp ryadom-dist:/usr/share/nginx/html/. /var/www/max-hackathon/
+sudo docker rm ryadom-dist
+```
+
+**5. Настроить Nginx и выпустить сертификаты**
+
+```bash
+sudo apt update
+sudo apt install -y nginx certbot python3-certbot-nginx
+sudo certbot certonly --nginx -d <DOMAIN>
+sudo certbot certonly --nginx -d voice.<DOMAIN>
+sudo mkdir -p /var/www/letsencrypt
+sed "s/max-hackathon.explainlaw.ru/<DOMAIN>/g" deploy/nginx/max-hackathon.production.conf | sudo tee /etc/nginx/sites-available/max-hackathon
+sudo ln -s /etc/nginx/sites-available/max-hackathon /etc/nginx/sites-enabled/max-hackathon
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+Конфиг `deploy/nginx/max-hackathon.production.conf` описывает оба домена: `<DOMAIN>` отдаёт статику из `/var/www/max-hackathon` и проксирует `/api/`, WebSocket `/ws/` и `/health` на API `127.0.0.1:8000`, а `voice.<DOMAIN>` проксирует на LiveKit `127.0.0.1:7880`. Команда `sed` подставляет ваш домен в оба блока. Конфиг подключает `/etc/letsencrypt/options-ssl-nginx.conf` и `/etc/letsencrypt/ssl-dhparams.pem`; если `nginx -t` сообщает, что их нет, уберите эти две строки:
+
+```bash
+sudo sed -i '/options-ssl-nginx.conf\|ssl-dhparams.pem/d' /etc/nginx/sites-available/max-hackathon
+```
+
+**6. Подключить MAX.** В кабинете MAX укажите адрес mini app бота: `https://<DOMAIN>`. Webhook для ответа на «Начать» и `/start` API регистрирует сам при старте.
+
+**7. Проверить**
+
+```bash
+curl -fsS https://<DOMAIN>/health
+```
+
+Ответ `{"status":"ok","db":"ok","livekit":"ok"}` значит, что API, база и голос готовы. Затем откройте бота в MAX, нажмите «Начать» и пройдите основной сценарий.
+
+**Обновление.** После `git pull` повторите шаг 3 без `render-livekit-production.sh` и шаг 4:
+
+```bash
+git pull
+sudo docker compose up -d --build postgres redis livekit api agent egress
+```
+
+Если сервер уже настроен, обновить его можно и с рабочей станции: `make deploy VM=user@host DOMAIN=<DOMAIN>`. Команда собирает frontend локально (нужен Node.js), копирует статику и код на сервер через `rsync` по SSH и пересобирает API, цифрового сотрудника и Egress.
 
 ## Требования к окружению
 
