@@ -61,7 +61,7 @@ services:
       DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://assist:assist@postgres:5432/assist}
       JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me-32-bytes-minimum}
       FIELD_ENCRYPTION_KEY: ${FIELD_ENCRYPTION_KEY:-MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=}
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://localhost:3000}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://localhost:3048}
       MAX_BOT_TOKEN: ${MAX_BOT_TOKEN:-}
       MAX_BOT_USERNAME: ${MAX_BOT_USERNAME:-t562_hakaton_max_bot}
       MAX_WEBHOOK_URL: ${MAX_WEBHOOK_URL:-}
@@ -205,7 +205,7 @@ services:
     image: nginx:1.27-alpine
     restart: unless-stopped
     ports:
-      - "${WEB_BIND_ADDRESS:-127.0.0.1}:${WEB_PORT:-3000}:80"
+      - "${WEB_BIND_ADDRESS:-127.0.0.1}:${WEB_PORT:-3048}:80"
     volumes:
       - ./deploy/nginx/local.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:

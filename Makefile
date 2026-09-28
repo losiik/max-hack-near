@@ -5,11 +5,11 @@ DOMAIN ?=
 APP_DIR ?= /opt/max-hackathon
 WEB_ROOT ?= /var/www/max-hackathon
 
-LOCAL_WEB_PORT ?= 3000
+LOCAL_WEB_PORT ?= 3048
 LOCAL_WEB_BIND_ADDRESS ?= 127.0.0.1
 LOCAL_CHECK_HOST ?= 127.0.0.1
 LOCAL_LIVEKIT_NODE_IP ?= 127.0.0.1
-LOCAL_COMPOSE_ENV = APP_ENV=dev POSTGRES_USER=assist POSTGRES_PASSWORD=assist POSTGRES_DB=assist DATABASE_URL=postgresql+asyncpg://assist:assist@postgres:5432/assist JWT_SECRET=dev-secret-change-me-32-bytes-minimum FIELD_ENCRYPTION_KEY=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY= POSTGRES_BIND_ADDRESS=127.0.0.1 POSTGRES_PORT=5433 API_BIND_ADDRESS=127.0.0.1 API_PORT=8000 CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000 LIVEKIT_URL=ws://localhost:7880 LIVEKIT_API_URL=http://livekit:7880 LIVEKIT_API_KEY=devkey LIVEKIT_API_SECRET=dev-livekit-secret-change-me-32-bytes LIVEKIT_BIND_ADDRESS=127.0.0.1 LIVEKIT_CONFIG_FILE=./livekit/livekit.yaml LIVEKIT_EGRESS_CONFIG_FILE=./livekit/egress.yaml LIVEKIT_NODE_IP=$(LOCAL_LIVEKIT_NODE_IP) MAX_BOT_TOKEN= REVIEW_LOGIN=review REVIEW_PASSWORD= AI_LLM_MODEL=qwen3-235b-a22b-fp8/latest AI_VOICE=dasha FRONTEND_BUILD_MODE=development RECORDINGS_VOLUME=local_recordings
+LOCAL_COMPOSE_ENV = APP_ENV=dev POSTGRES_USER=assist POSTGRES_PASSWORD=assist POSTGRES_DB=assist DATABASE_URL=postgresql+asyncpg://assist:assist@postgres:5432/assist JWT_SECRET=dev-secret-change-me-32-bytes-minimum FIELD_ENCRYPTION_KEY=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY= POSTGRES_BIND_ADDRESS=127.0.0.1 POSTGRES_PORT=5433 API_BIND_ADDRESS=127.0.0.1 API_PORT=8000 CORS_ORIGINS=http://localhost:3048,http://127.0.0.1:3048 LIVEKIT_URL=ws://localhost:7880 LIVEKIT_API_URL=http://livekit:7880 LIVEKIT_API_KEY=devkey LIVEKIT_API_SECRET=dev-livekit-secret-change-me-32-bytes LIVEKIT_BIND_ADDRESS=127.0.0.1 LIVEKIT_CONFIG_FILE=./livekit/livekit.yaml LIVEKIT_EGRESS_CONFIG_FILE=./livekit/egress.yaml LIVEKIT_NODE_IP=$(LOCAL_LIVEKIT_NODE_IP) MAX_BOT_TOKEN= REVIEW_LOGIN=review REVIEW_PASSWORD= AI_LLM_MODEL=qwen3-235b-a22b-fp8/latest AI_VOICE=dasha FRONTEND_BUILD_MODE=development RECORDINGS_VOLUME=local_recordings
 LOCAL_COMPOSE = docker compose $(if $(wildcard backend/.env),--env-file backend/.env)
 
 .PHONY: check build deploy deploy-frontend deploy-backend deploy-local local-down local-clean local-logs production-check remote-env
