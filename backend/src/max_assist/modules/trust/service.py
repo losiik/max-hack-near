@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from max_assist.errors import Conflict, NotFound
 from max_assist.modules.identity.models import User
+from max_assist.modules.notifications import service as notifications
 from max_assist.modules.trust import domain
 from max_assist.modules.trust.models import Pairing, TrustedHelper
 
@@ -108,7 +109,9 @@ async def preview(session: AsyncSession, user: User, token: str) -> tuple[Pairin
 async def claim(session: AsyncSession, user: User, token: str) -> Pairing:
     pairing = await by_token(session, token)
     domain.claim(pairing, user, await is_trusted(session, pairing.owner_id, user.id))
+    owner = await session.get(User, pairing.owner_id)
     await session.commit()
+    await notifications.pairing_claimed(owner, user.display_name, pairing.id)
     return pairing
 
 

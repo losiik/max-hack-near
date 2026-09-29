@@ -92,6 +92,16 @@ async def helper_ready(owner: User, helper_name: str, service_title: str, callba
     )
 
 
+async def pairing_claimed(owner: User, helper_name: str, pairing_id: UUID) -> None:
+    # владелец мог уже закрыть экран с кодом, поэтому подтверждение приходит сообщением
+    await send(
+        owner,
+        f"{helper_name} хочет стать вашим близким. "
+        "Подтвердите, и его можно будет позвать на помощь одним нажатием",
+        [Button("Подтвердить", f"pc_{pairing_id}")],
+    )
+
+
 async def operator_requested(staff: User, owner_name: str, service_title: str) -> bool:
     return await send(
         staff,

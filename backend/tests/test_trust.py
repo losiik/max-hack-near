@@ -87,6 +87,16 @@ async def test_qr_pairing_from_start_to_the_list_of_close_people(client):
     assert counters["trusted_helpers"] == 1
 
 
+async def test_owner_gets_a_bot_message_to_confirm_the_close_person(client):
+    owner, helper, pairing = await paired(client)
+
+    await client.post(f"/api/v1/pairing-tokens/{pairing['token']}/claim", headers=helper)
+
+    [message] = (await client.get("/api/v1/dev/outbox", headers=owner)).json()
+    assert message["text"].startswith("Олег Н. хочет стать вашим близким")
+    assert message["buttons"] == [{"text": "Подтвердить", "start_param": f"pc_{pairing['id']}"}]
+
+
 async def test_used_code_and_second_pairing_of_the_same_person(client):
     owner, helper, pairing = await paired(client)
     await client.post(f"/api/v1/pairing-tokens/{pairing['token']}/claim", headers=helper)

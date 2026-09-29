@@ -24,6 +24,7 @@ import { S9Ended } from './screens/S9Ended';
 import { O1OperatorQueue } from './screens/O1OperatorQueue';
 import { T1TrustedHelpers } from './screens/T1TrustedHelpers';
 import { T4PairingInvite } from './screens/T4PairingInvite';
+import { T6ConfirmPairing } from './screens/T6ConfirmPairing';
 import { T5HelpingFor } from './screens/T5HelpingFor';
 import { R1Consultations } from './screens/R1Consultations';
 import { R2Consultation } from './screens/R2Consultation';
@@ -37,7 +38,7 @@ import { useAssistStore } from './realtime/assistStore';
 import { useAssistSocket } from './realtime/useAssistSocket';
 import { BottomNav, LoadingMessage } from './components/UiPrimitives';
 
-type AppMode = 'loading' | 'dev' | 'home' | 'services' | 'operator-queue' | 'trusted-helpers' | 'helping-for' | 'pairing-invite' | 'consultations' | 'consultation-detail' | 'replay' | 'service' | 'form' | 'confirmation' | 'submitted' | 'help-options' | 'waiting' | 'helper-invite' | 'helper-busy' | 'helper-ready' | 'helper-pending' | 'helper-active' | 'assist-busy' | 'assist-ended' | 'error';
+type AppMode = 'loading' | 'dev' | 'home' | 'services' | 'operator-queue' | 'trusted-helpers' | 'helping-for' | 'pairing-invite' | 'pairing-confirm' | 'consultations' | 'consultation-detail' | 'replay' | 'service' | 'form' | 'confirmation' | 'submitted' | 'help-options' | 'waiting' | 'helper-invite' | 'helper-busy' | 'helper-ready' | 'helper-pending' | 'helper-active' | 'assist-busy' | 'assist-ended' | 'error';
 
 function withTimeout<T>(promise: Promise<T>, milliseconds: number, message: string): Promise<T> {
   return new Promise<T>((resolve, reject) => {
@@ -109,6 +110,7 @@ export default function App() {
       else if (intent.kind === 'invite_declined') { setInviteToken(intent.token); setMode('helper-busy'); }
       else if (intent.kind === 'helper_ready') { setInviteToken(intent.callbackId); setMode('helper-ready'); }
       else if (intent.kind === 'pairing') { setInviteToken(intent.token); setMode('pairing-invite'); }
+      else if (intent.kind === 'pairing_confirm') { setInviteToken(intent.pairingId); setMode('pairing-confirm'); }
       else if (intent.kind === 'call_helper') await callBackFromBot(intent.callbackId);
       else if (intent.kind === 'operator_queue' && response.user.staff) setMode('operator-queue');
       else await restoreActiveAssist();
@@ -128,7 +130,7 @@ export default function App() {
   }, [realtime.joinRequest]);
 
   if (mode === 'loading') return <AppShell><A0 message={maxUserHint ? `Входим как ${maxUserHint}` : undefined} /></AppShell>;
-  if (mode === 'dev') return <AppShell><D1 onLogin={beginUserSession} onHome={() => setMode('home')} onLaunch={(value) => { const intent = parseStartParam(value); if (intent.kind === 'assist_invite') { setInviteToken(intent.token); setMode('helper-invite'); } else if (intent.kind === 'invite_declined') { setInviteToken(intent.token); setMode('helper-busy'); } else if (intent.kind === 'helper_ready') { setInviteToken(intent.callbackId); setMode('helper-ready'); } else if (intent.kind === 'pairing') { setInviteToken(intent.token); setMode('pairing-invite'); } else if (intent.kind === 'call_helper') { void callBackFromBot(intent.callbackId); } else if (intent.kind === 'operator_queue') { setMode('operator-queue'); } }} /></AppShell>;
+  if (mode === 'dev') return <AppShell><D1 onLogin={beginUserSession} onHome={() => setMode('home')} onLaunch={(value) => { const intent = parseStartParam(value); if (intent.kind === 'assist_invite') { setInviteToken(intent.token); setMode('helper-invite'); } else if (intent.kind === 'invite_declined') { setInviteToken(intent.token); setMode('helper-busy'); } else if (intent.kind === 'helper_ready') { setInviteToken(intent.callbackId); setMode('helper-ready'); } else if (intent.kind === 'pairing') { setInviteToken(intent.token); setMode('pairing-invite'); } else if (intent.kind === 'pairing_confirm') { setInviteToken(intent.pairingId); setMode('pairing-confirm'); } else if (intent.kind === 'call_helper') { void callBackFromBot(intent.callbackId); } else if (intent.kind === 'operator_queue') { setMode('operator-queue'); } }} /></AppShell>;
   if (mode === 'error') return <AppShell><Flex direction="column" gap={12}><Typography.Title>Не удалось продолжить</Typography.Title><Typography.Text>{error || 'Откройте приложение из MAX и попробуйте снова.'}</Typography.Text><Button onClick={() => window.location.reload()}>Повторить</Button></Flex></AppShell>;
 
   async function openActiveAssist(assistId: string) {
@@ -380,7 +382,7 @@ export default function App() {
   const shellTitle: Partial<Record<AppMode, string>> = {
     services: 'Услуги', service: 'Услуга', form: definition?.title ?? 'Заявление', confirmation: definition?.title ?? 'Заявление', waiting: definition?.title ?? 'Помощь',
     'help-options': definition?.title ?? 'Помощь', 'helper-invite': 'Приглашение', 'helper-busy': 'Приглашение', 'helper-ready': 'Приглашение',
-    'helper-pending': 'Приглашение', 'trusted-helpers': 'Мои близкие', 'helping-for': 'Кому я помогаю', 'pairing-invite': 'Добавить близкого',
+    'helper-pending': 'Приглашение', 'trusted-helpers': 'Мои близкие', 'helping-for': 'Кому я помогаю', 'pairing-invite': 'Добавить близкого', 'pairing-confirm': 'Добавить близкого',
     consultations: 'История помощи', 'consultation-detail': 'Встреча', replay: 'Встреча', 'operator-queue': 'Очередь обращений', 'assist-ended': 'Итоги встречи',
   };
   const hideShellHeader = mode === 'home' || mode === 'helper-active' || mode === 'submitted' || mode === 'assist-busy';
@@ -394,6 +396,7 @@ export default function App() {
     {mode === 'trusted-helpers' && <T1TrustedHelpers />}
     {mode === 'helping-for' && <T5HelpingFor onOpen={(id) => { setAssist({ id } as AssistSession); setMode('helper-active'); }} onPairing={(token) => { setInviteToken(token); setMode('pairing-invite'); }} />}
     {mode === 'pairing-invite' && inviteToken && <T4PairingInvite token={inviteToken} onHome={backToHome} />}
+    {mode === 'pairing-confirm' && inviteToken && <T6ConfirmPairing pairingId={inviteToken} onHelpers={() => setMode('trusted-helpers')} />}
     {mode === 'consultations' && <R1Consultations as={localStaffMode ? 'helper' : 'owner'} staffMode={localStaffMode} onOpen={(id) => { setHistoryId(id); setMode('consultation-detail'); }} />}
     {mode === 'consultation-detail' && historyId && <R2Consultation id={historyId} onReplay={() => setMode('replay')} />}
     {mode === 'replay' && historyId && <R3Replay id={historyId} />}

@@ -6,6 +6,7 @@ export type LaunchIntent =
   | { kind: 'call_helper'; callbackId: string }
   | { kind: 'operator_queue' }
   | { kind: 'pairing'; token: string }
+  | { kind: 'pairing_confirm'; pairingId: string }
   | { kind: 'unknown'; value: string };
 
 export function parseStartParam(value: string): LaunchIntent {
@@ -16,6 +17,7 @@ export function parseStartParam(value: string): LaunchIntent {
   if (value.startsWith('ar_')) return { kind: 'helper_ready', callbackId: value.slice(3) };
   if (value.startsWith('oc_')) return { kind: 'call_helper', callbackId: value.slice(3) };
   if (value.startsWith('pr_')) return { kind: 'pairing', token: value.slice(3) };
+  if (value.startsWith('pc_')) return { kind: 'pairing_confirm', pairingId: value.slice(3) };
   return { kind: 'unknown', value };
 }
 
@@ -33,6 +35,8 @@ export function launchIntentLabel(intent: LaunchIntent): string {
       return 'Очередь обращений';
     case 'pairing':
       return 'Стать доверенным помощником';
+    case 'pairing_confirm':
+      return 'Подтвердить близкого';
     case 'unknown':
       return 'Неизвестная ссылка';
     default:

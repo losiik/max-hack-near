@@ -497,6 +497,7 @@ export function revokeTrustedHelper(id: string): Promise<void> { return request<
 export function createPairing(method: Pairing['method']): Promise<Pairing> { return request<Pairing>('/pairings', { method: 'POST', body: JSON.stringify({ method }) }); }
 export function getPairing(id: string, signal?: AbortSignal): Promise<PairingState> { return request<PairingState>(`/pairings/${id}`, { signal }); }
 export function confirmPairing(id: string, alias?: string): Promise<TrustedHelper> { return request<TrustedHelper>(`/pairings/${id}/confirm`, { method: 'POST', body: JSON.stringify({ alias }) }); }
+export function rejectPairing(id: string): Promise<PairingState> { return request<PairingState>(`/pairings/${id}/reject`, { method: 'POST' }); }
 export function getPairingPreview(token: string, signal?: AbortSignal): Promise<PairingPreview> { return request<PairingPreview>(`/pairing-tokens/${token}`, { signal }); }
 export function claimPairing(token: string): Promise<{ pairing_id: string; status: string }> { return request(`/pairing-tokens/${token}/claim`, { method: 'POST' }); }
 
